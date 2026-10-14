@@ -49,10 +49,16 @@ Set `BOUTIQUE_CONTROLLER_ROLE=release` in global environment properties.
 The variable is a guardrail; it does not isolate code or credentials.
 
 Create a **Pipeline from SCM** seed pinned to that reviewed CI revision with
-script path `pipelines/seed-release.Jenkinsfile`. Keep
+script path `pipelines/seed-release.Jenkinsfile` and Lightweight checkout off. Keep
 `SUPPRESS_AUTOMATIC_BUILDS=true` during setup, then rerun it with false to allow
-main builds. It runs `jenkins/jobs/release.groovy`. Review Job DSL configuration
-API approvals if Jenkins requests them; do not globally disable sandboxing.
+main builds. It runs `jenkins/jobs/release.groovy` through supported sandboxed DSL,
+without custom method approvals. Install/enable Authorize Project separately
+for the seed (not preinstalled by the current controller plugin lock). Enable
+Per-project configurable Build Authorization under Manage Jenkins → Security →
+Access Control for Builds, including Run as a specific user. On the seed job's
+Authorization sidebar page, select that strategy and your authorized Jenkins
+operator user ID; save before running. A logged-in trigger alone does not select
+build identity. Do not disable the sandbox to bypass authorization errors.
 
 The seed generates four app multibranch jobs plus promote/rollback/verify,
 manifest validation and infrastructure. `ENABLE_INCIDENT_BRIDGE_BUILD=false`

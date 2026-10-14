@@ -142,6 +142,7 @@ Disable an old Freestyle seed. Create **New Item → Pipeline**, named
 | Credentials | `github-read` |
 | Branch specifier | Full reviewed CI commit containing the simplified pipeline |
 | Script Path | `pipelines/seed-release.Jenkinsfile` |
+| Lightweight checkout | Off; a full SHA needs normal Git checkout |
 
 Save and run it. `SUPPRESS_AUTOMATIC_BUILDS=true` is the default: indexing can
 create branches without triggering application builds. Manual builds work.
@@ -150,9 +151,17 @@ verify and infrastructure jobs. Keep `ENABLE_INCIDENT_BRIDGE_BUILD=false`
 (default); enabling it adds the optional platform adapter build. Infrastructure
 is manual and optional.
 
-The Job DSL uses Jenkins configuration APIs. If Jenkins requests script approval,
-review the exact checked-in seed/DSL and only the necessary signatures under
-In-process Script Approval. Do not disable the sandbox globally. The seed
+The seed uses sandbox-compatible Job DSL rather than deferred XML configure
+blocks and needs no custom method approvals. Sandbox execution still needs a
+real Jenkins user identity. Install/enable Authorize Project on the controller
+(the current controller image plugin lock does not preinstall this bootstrap
+plugin). Under Manage Jenkins → Security → Access Control for Builds, add
+Per-project configurable Build Authorization and enable Run as a specific user.
+Then open the seed job's **Authorization** sidebar page, select Run as a specific
+user and choose your authorized Jenkins operator user ID. Save before running
+it. The current plugin exposes this page separately from Configure. Keep the
+sandbox enabled and report unexpected rejected methods rather than approving
+unrelated signatures. The seed
 preserves jobs it no longer manages. Disable old `boutique-bootstrap` and
 `boutique-gitops-check` jobs manually after reviewing active builds; they are
 not deleted automatically, and old job configurations are not safe to run.

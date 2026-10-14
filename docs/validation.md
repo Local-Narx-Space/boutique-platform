@@ -14,7 +14,7 @@ than mixed with current acceptance evidence.
 | Helm/schema validation | 14 profiles, 339 resources: 327 schema-valid, zero invalid/errors, 12 explicit CRD skips |
 | Candidate-input handling | Protected validation passed with candidate scripts deliberately broken; candidate scripts were not executed, symlinks rejected and packaged chart inputs inspected |
 | Jenkins runtime | Jenkins 2.580.1 loaded all 79 checksum-locked plugins; JCasC had zero warnings |
-| Jenkins job definitions | Actual Job DSL generated nine default jobs and ten with the optional adapter enabled; main-only discovery and initial automatic-build suppression |
+| Jenkins job definitions | Sandboxed Job DSL generated nine default jobs and ten with the optional adapter enabled, with zero custom method approvals; native deserialization confirmed main-only discovery and initial automatic-build suppression |
 | Runtime tool integrity | 7 tests passed for tool verification/install helpers |
 | Pipeline syntax | Jenkins accepted the shared service pipeline, seed, manifest validation, promotion, rollback, verifier and infrastructure definitions |
 | Separate service tests | Frontend 3, catalogue 5 (including 3 report-converter tests), cart 6, orders 2 and optional adapter 17 passed in non-root disposable test containers; all five runtime images built separately |
@@ -80,3 +80,8 @@ components and the local secret helper correction. Its checks did not rerun the
 live application journey or deploy a Kubernetes cluster. The existing service
 image/build checks above predate this operational cleanup; application code and
 Dockerfiles were unchanged by the platform audit.
+
+The seed regression now uses SandboxDslScriptLoader with a real test-user
+identity. Earlier job-definition checks used an unsandboxed loader and missed
+the deferred XML configure-block failure. The supported DSL replacement passed
+the sandboxed check on 2026-10-14; target-host seed execution remains to verify.

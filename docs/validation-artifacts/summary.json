@@ -70,7 +70,9 @@
       "default": 9,
       "withIncidentBridge": 10
     },
-    "jcascWarnings": 0
+    "jcascWarnings": 0,
+    "jobDslSandbox": true,
+    "jobDslCustomMethodApprovals": 0
   },
   "job_dsl_generated_jobs": {
     "default": 9,
