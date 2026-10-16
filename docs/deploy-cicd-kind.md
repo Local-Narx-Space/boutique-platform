@@ -255,9 +255,9 @@ PY
 ```
 
 Every service must use `@sha256:...`; bootstrap placeholders are intentionally
-non-deployable. Make published application images public in GHCR settings for
-the laptop path. If private, provision a namespace-scoped imagePullSecret and
-chart pull configuration; do not place registry tokens in Helm values.
+non-deployable. Keep the container packages private and provision ghcr-pull in each environment
+namespace before enabling sync. Laptop profiles reference that Secret; chart
+packages are already vendored in Git. Do not place registry tokens in Helm values.
 
 ## 8. Prepare dev data and connect Argo CD
 
@@ -272,15 +272,19 @@ python3 scripts/k8s-secrets.py dev
 cd ~/devops-boutique/boutique-gitops
 python3 scripts/render.py dev --profile laptop --lint
 python3 scripts/render.py dev --profile laptop > /tmp/boutique-dev-review.yaml
-kubectl --context kind-mega-local apply -f applications/dev-laptop.yaml
+kubectl --context kind-mega-local apply -f applications/laptop-projects.yaml
+kubectl --context kind-mega-local apply -f applications/laptop-appset.yaml
 ```
 
-Inspect the rendered file before applying the Application. It contains four
+Inspect the rendered file before applying the ApplicationSet. It contains four
 services, namespace policy, quotas and the two data StatefulSets, but no plaintext
 credentials. It uses existing default persistent storage and secrets.
 
-In Argo CD, open **boutique-dev**, inspect **Diff**, then **Sync**. Initial sync
-is manual in this profile. PostgreSQL/Redis must initialize and orders Flyway
+The ApplicationSet generates dev, staging and production Applications. Dev
+auto-syncs; staging and production initially remain paused for bootstrap.
+Review adoption and bootstrap steps in boutique-gitops/laptop-profiles/README.md.
+No root app is required; leave any existing unrelated root-app untouched.
+PostgreSQL/Redis must initialize and orders Flyway
 migrations must complete before frontend readiness succeeds. Check:
 
 ```bash
@@ -293,13 +297,19 @@ kubectl --context kind-mega-local -n boutique-dev rollout status deployment/orde
 
 The initial rollout may take longer than 180 seconds while pulling Java/images;
 inspect Events/logs before retrying. Do not repeatedly delete data pods or PVCs.
-After the complete first rollout, enable **Auto-Sync / Self-Heal / Prune** in the
-Application through a reviewed configuration change if desired. The initial
-manual policy is deliberate; Jenkins still only proposes PRs.
+After preparing each additional environment, enable its autoSync field in the
+ApplicationSet list through a reviewed change and reapply the ApplicationSet.
+Do not edit generated Applications directly. Jenkins automation activation is
+documented separately in boutique-ci/docs/release-flow.md.
 
 ## 9. Open and functionally test the application
 
-Jenkins already owns host port 8080, so use 8088 for the app. In one terminal:
+The configured public laptop origin is https://boutique.narx.space. Use the
+Cloudflare route documented in boutique-gitops/laptop-profiles/dev/README.md.
+The following port-forward is an optional localhost exercise: first restore
+PUBLIC_ORIGIN=http://localhost:8088 and COOKIE_SECURE=false through Git if you
+intend to perform browser checkout through localhost. Otherwise use it only for
+read-only connectivity checks. Jenkins owns port 8080, so use 8088:
 
 ```bash
 kubectl --context kind-mega-local -n boutique-dev port-forward \
