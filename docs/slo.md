@@ -16,11 +16,17 @@ The existing frontend metrics are `boutique_http_requests_total`, `boutique_http
 
 ### Measurement readiness
 
-Current Prometheus retention is **7 days** in both Compose and the affordable Helm stack. A `[30d]` query would silently use incomplete history. Until retention/storage has been reviewed and extended to at least 35 days (or equivalent durable aggregation is implemented), report a clearly labelled 7-day lab view and mark the 30-day objective **not evaluable**. A full rolling report also requires continuous collection across the window; restarted counters, missing targets and missing scrapes must be investigated.
+The shared-cluster homelab Helm profile now configures **35 days** time retention
+with a **4GB block cap** on the existing 5Gi PVC. Other profiles and Compose retain
+their seven-day default. The size cap may evict data before 35 days, and WAL/head
+storage needs additional space. A `[30d]` query silently uses partial history when
+that is all that exists. Report observed coverage, and mark the 30-day objective
+**not evaluable** until continuous collection and sufficient storage support the
+full window. Do not treat a newly populated dashboard as a 30-day achievement.
 
-These response-based SLIs cannot see DNS, TLS, load-balancer failures or requests that never reach/finish at the frontend. A scrape `up` metric is not user availability. An independent external HTTPS journey probe is needed before claiming complete user-facing availability; its collection and long-term reports are not implemented here. The functional smoke suite already exercises browsing, cart and checkout, but running it during deployment does not provide continuous availability coverage. It creates disposable orders, so continuous synthetic checkout needs an agreed test-data policy.
+These response-based SLIs cannot see DNS, TLS, load-balancer failures or requests that never reach/finish at the frontend. A scrape `up` metric is not user availability. The shared profile now probes public HTTPS readiness through Cloudflare with certificate verification, but that prober runs in the same cluster. An independent external HTTPS journey check is still needed to detect a total host/cluster outage and establish complete user-facing availability. Long-term journey reports are not implemented. The functional smoke suite already exercises browsing, cart and checkout, but running it during deployment does not provide continuous availability coverage. It creates disposable orders, so continuous synthetic checkout needs an agreed test-data policy.
 
-An empty denominator, insufficient history or missing telemetry is **unknown**, never 100% availability. Prometheus process/pod health and incident receiver delivery need separate operational checks. The current error/latency alerts are threshold alerts; automated SLO burn-rate alerts and an SLO dashboard are not yet installed.
+An empty denominator, insufficient history or missing telemetry is **unknown**, never 100% availability. Prometheus process/pod health and incident receiver delivery need separate operational checks. The shared profile includes production-only availability/latency multi-window burn alerts and a production SLO dashboard. Critical alerts require 14.4x burn in both 5-minute and 1-hour windows; warning alerts require 6x in both 30-minute and 6-hour windows. The corresponding long window requires at least 100 eligible responses. Low volume stays unknown rather than becoming a success claim; missing-target and public readiness alerts remain independent. Checkout has a documented separate objective, but no dedicated checkout burn alert yet.
 
 ### PromQL examples
 

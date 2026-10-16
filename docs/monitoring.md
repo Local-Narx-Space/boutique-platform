@@ -1,3 +1,34 @@
+# Shared monitoring on the current cluster
+
+The shared homelab Helm profile now covers **dev, staging and production**, plus
+monitoring self-metrics/logs. Argo CD still manages one monitoring Application;
+the environment ApplicationSet manages business deployments separately.
+
+It adds namespace-scoped kube-state-metrics, node-exporter, TLS-verifying public
+readiness probes, production SLO burn alerts, and three Grafana dashboards:
+Boutique operations, Boutique platform and monitoring, Boutique production SLOs.
+ServiceNow is optional and its panels/alerts are absent when disabled.
+
+All alerts use the existing Slack channel with environment-labelled titles.
+Production and non-production have separate logical receivers for timing and
+routing. No extra webhook is needed for the selected one-channel setup.
+
+Reapply boutique-gitops/applications/monitoring-homelab.yaml before syncing the
+monitoring Application, because its AppProject gains staging/production RBAC
+scope. The current stack preserves PVCs and existing credentials. See the
+[shared chart operations guide](https://github.com/subhankar12-spec/boutique-gitops/blob/main/monitoring/README.md#shared-cluster-observability)
+for rollout checks, retention, exporter image provenance and limitations.
+
+Public probes check /health/ready without placing orders. Configure all three
+Cloudflare routes; missing routes correctly alert. Because the prober and
+Alertmanager run in the same cluster, an independent remote check/dead-man
+receiver is still needed for full-cluster failure detection. Kubelet/cAdvisor
+per-container resource usage and actual per-PVC free space are not configured.
+On kind, node metrics may represent the shared Debian kernel rather than
+independent physical node capacity. The single-replica stack is not HA.
+
+## Existing Compose and cloud/lab workflows
+
 > Kubernetes defaults to Prometheus/Grafana, Alertmanager/Slack, Loki/Alloy.
 > ServiceNow and incident queue workers are optional (`incidentBridge.enabled=true`).
 > The integration, queue and mock exercises below require that explicit opt-in.

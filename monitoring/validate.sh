@@ -27,6 +27,9 @@ for config in "$TMP"/rendered/*; do
   docker run --rm -v "$config:/config:ro" --entrypoint /bin/promtool "$PROM" check rules /config/rules.yml
   docker run --rm -v "$config:/config:ro" --entrypoint /bin/amtool "$AM" check-config /config/alertmanager.yml
   docker run --rm -v "$config/config.alloy:/config.alloy:ro" "$ALLOY" validate /config.alloy
+  if [ -f "$config/shared-rules.test.yml" ]; then
+    docker run --rm -v "$config:/config:ro" -w /config --entrypoint /bin/promtool "$PROM" test rules shared-rules.test.yml
+  fi
   if [[ "$config" == *-incident ]]; then
     docker run --rm -v "$config:/config:ro" -w /config --entrypoint /bin/promtool "$PROM" test rules rules.test.yml
     AMTOOL="$TMP/amtool" python3 "$OBS/test-routing.py" --config "$config/alertmanager.yml"

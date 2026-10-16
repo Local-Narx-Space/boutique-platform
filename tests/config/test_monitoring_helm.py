@@ -33,13 +33,13 @@ class MonitoringHelmTests(unittest.TestCase):
             resources=self.render(profile, incident=False)
             self.assertFalse(any(d['metadata']['name'].startswith('incident-bridge') for d in resources))
             config=yaml.safe_load(self.resource(resources,'ConfigMap','boutique-alertmanager')['data']['alertmanager.yml'])
-            self.assertEqual([r['name'] for r in config['receivers']], ['slack'])
+            self.assertEqual([r['name'] for r in config['receivers']], ['slack','slack-production','slack-nonprod'] if profile=='homelab' else ['slack'])
             deployment=self.resource(resources,'Deployment','alertmanager')
             volume=next(v for v in deployment['spec']['template']['spec']['volumes'] if v['name']=='secrets')
-            self.assertEqual([i['key'] for i in volume['secret']['items']],['slack_webhook'])
+            self.assertEqual([i['key'] for i in volume['secret']['items']],['slack_webhook','slack_webhook'] if profile=='homelab' else ['slack_webhook'])
 
     def test_profile_target_and_rbac_scopes_match(self):
-        expected={'homelab':['boutique-dev'],'nonprod':['boutique-dev','boutique-staging'],'production':['boutique-production']}
+        expected={'homelab':['boutique-dev','boutique-staging','boutique-production'],'nonprod':['boutique-dev','boutique-staging'],'production':['boutique-production']}
         for profile,namespaces in expected.items():
             with self.subTest(profile=profile):
                 resources=self.render(profile)
@@ -48,7 +48,7 @@ class MonitoringHelmTests(unittest.TestCase):
                     if job['job_name'] in ('boutique','orders'):
                         self.assertEqual(job['kubernetes_sd_configs'][0]['namespaces']['names'],namespaces)
                 roles=[d for d in resources if d['kind']=='Role' and d['metadata']['name']=='monitoring-pod-discovery']
-                self.assertEqual({r['metadata']['namespace'] for r in roles},set(namespaces))
+                self.assertEqual({r['metadata']['namespace'] for r in roles},set(namespaces) | ({'monitoring','monitoring-logs'} if profile=='homelab' else set()))
                 for role in roles:
                     for rule in role['rules']:
                         self.assertEqual(rule['resources'],['pods'])
@@ -56,6 +56,33 @@ class MonitoringHelmTests(unittest.TestCase):
                 alloy=self.resource(resources,'DaemonSet','alloy')['spec']['template']['spec']['containers'][0]
                 labels={e['name']:e.get('value') for e in alloy['env']}
                 self.assertEqual(labels['CLUSTER_NAME'],profile)
+
+    def test_shared_monitoring_collectors_are_scoped_and_incident_alerts_are_absent(self):
+        resources=self.render('homelab', incident=False)
+        config=yaml.safe_load(self.resource(resources,'ConfigMap','boutique-prometheus')['data']['prometheus.yml'])
+        self.assertFalse(any(j['job_name']=='incident-bridge' for j in config['scrape_configs']))
+        rules=yaml.safe_load(self.resource(resources,'ConfigMap','boutique-prometheus')['data']['rules.yml'])
+        alerts=[rule for group in rules['groups'] for rule in group['rules'] if 'alert' in rule]
+        self.assertFalse(any(rule['alert'].startswith('Incident') for rule in alerts))
+        missing=[rule for rule in alerts if rule['alert']=='BoutiqueServiceMissing']
+        self.assertEqual({(rule['labels']['environment'],rule['labels']['service']) for rule in missing},
+                         {(e,s) for e in ('dev','staging','production') for s in ('frontend','catalogue','cart','orders')})
+        self.assertFalse(any(r['kind'] in ('ClusterRole','ClusterRoleBinding') for r in resources))
+        # Host collectors must not land in the Restricted core namespace.
+        for workload in resources:
+            if workload['kind'] in ('Deployment','DaemonSet') and workload['metadata']['namespace']=='monitoring':
+                self.assertFalse(any('hostPath' in volume for volume in workload['spec']['template']['spec'].get('volumes',[])))
+        exporter=self.resource(resources,'DaemonSet','node-exporter')
+        self.assertEqual(exporter['metadata']['namespace'],'monitoring-logs')
+        self.assertTrue(exporter['spec']['template']['spec']['securityContext']['runAsNonRoot'])
+        self.assertFalse(exporter['spec']['template']['spec'].get('hostNetwork',False))
+
+        roles=[r for r in resources if r['kind']=='Role' and r['metadata']['name']=='kube-state-metrics']
+        self.assertEqual(len(roles),5)
+        self.assertFalse(any('secrets' in rule['resources'] for role in roles for rule in role['rules']))
+        grafana=self.resource(resources,'ConfigMap','boutique-grafana')['data']
+        self.assertEqual({'boutique.json','platform.json','slo.json'} & set(grafana),{'boutique.json','platform.json','slo.json'})
+        self.assertFalse(any('incident' in p['title'].lower() for p in json.loads(grafana['boutique.json'])['panels']))
 
     def test_production_queue_uses_two_workers_and_scoped_secret(self):
         resources=self.render('production')

@@ -39,6 +39,9 @@ def main():
             fixture['rule_files'] = ['rules.yml']
             (output / 'rules.test.yml').write_text(yaml.safe_dump(fixture))
             (output / 'rules.test.yml').chmod(0o644)
+            if profile == 'homelab':
+                (output / 'shared-rules.test.yml').write_text(Path(__file__).with_name('shared-rules.test.yml').read_text())
+                (output / 'shared-rules.test.yml').chmod(0o644)
 
 
 if __name__ == '__main__':

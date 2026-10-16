@@ -1,0 +1,198 @@
+rule_files:
+- rules.yml
+evaluation_interval: 1m
+tests:
+- interval: 1m
+  input_series:
+  - series: boutique_http_requests_total{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200"}
+    values: 0+95x80
+  - series: boutique_http_requests_total{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="500"}
+    values: 0+5x80
+  - series: boutique_http_request_duration_seconds_count{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200"}
+    values: 0+95x80
+  - series: boutique_http_request_duration_seconds_bucket{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200",le="1"}
+    values: 0+80x80
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: BoutiqueProductionAvailabilityBudgetBurn
+    exp_alerts:
+    - exp_labels:
+        service: frontend
+        environment: production
+        cluster: homelab
+        severity: critical
+        slo: errors
+      exp_annotations:
+        summary: Production API availability budget is burning at over 14.4x
+        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/docs/slo.md
+    - exp_labels:
+        service: frontend
+        environment: production
+        cluster: homelab
+        severity: warning
+        slo: errors
+      exp_annotations:
+        summary: Production API availability budget is burning at over 6x
+        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/docs/slo.md
+  - eval_time: 65m
+    alertname: BoutiqueProductionLatencyBudgetBurn
+    exp_alerts:
+    - exp_labels:
+        service: frontend
+        environment: production
+        cluster: homelab
+        severity: critical
+        slo: slow
+      exp_annotations:
+        summary: Production API latency budget is burning at over 14.4x
+        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/docs/slo.md
+    - exp_labels:
+        service: frontend
+        environment: production
+        cluster: homelab
+        severity: warning
+        slo: slow
+      exp_annotations:
+        summary: Production API latency budget is burning at over 6x
+        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/docs/slo.md
+- interval: 1m
+  input_series:
+  - series: boutique_http_requests_total{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200"}
+    values: 0+100x80
+  - series: boutique_http_requests_total{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="500"}
+    values: 0+0x80
+  - series: boutique_http_request_duration_seconds_count{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200"}
+    values: 0+100x80
+  - series: boutique_http_request_duration_seconds_bucket{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200",le="1"}
+    values: 0+100x80
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: BoutiqueProductionAvailabilityBudgetBurn
+    exp_alerts: []
+  - eval_time: 65m
+    alertname: BoutiqueProductionLatencyBudgetBurn
+    exp_alerts: []
+- interval: 1m
+  input_series:
+  - series: boutique_http_requests_total{service="frontend",environment="staging",cluster="homelab",route="/api/products",method="GET",status="200"}
+    values: 0+95x80
+  - series: boutique_http_requests_total{service="frontend",environment="staging",cluster="homelab",route="/api/products",method="GET",status="500"}
+    values: 0+5x80
+  - series: boutique_http_request_duration_seconds_count{service="frontend",environment="staging",cluster="homelab",route="/api/products",method="GET",status="200"}
+    values: 0+95x80
+  - series: boutique_http_request_duration_seconds_bucket{service="frontend",environment="staging",cluster="homelab",route="/api/products",method="GET",status="200",le="1"}
+    values: 0+80x80
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: BoutiqueProductionAvailabilityBudgetBurn
+    exp_alerts: []
+  - eval_time: 65m
+    alertname: BoutiqueProductionLatencyBudgetBurn
+    exp_alerts: []
+- interval: 1m
+  input_series:
+  - series: boutique_http_requests_total{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200"}
+    values: 0+0x80
+  - series: boutique_http_requests_total{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="500"}
+    values: 0+1x80
+  - series: boutique_http_request_duration_seconds_count{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200"}
+    values: 0+0x80
+  - series: boutique_http_request_duration_seconds_bucket{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200",le="1"}
+    values: 0+0x80
+  alert_rule_test:
+  - eval_time: 65m
+    alertname: BoutiqueProductionAvailabilityBudgetBurn
+    exp_alerts: []
+  - eval_time: 65m
+    alertname: BoutiqueProductionLatencyBudgetBurn
+    exp_alerts: []
+- interval: 1m
+  input_series: []
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: BoutiqueServiceMissing
+    exp_alerts:
+    - exp_labels:
+        environment: dev
+        service: frontend
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for frontend in dev
+    - exp_labels:
+        environment: dev
+        service: catalogue
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for catalogue in dev
+    - exp_labels:
+        environment: dev
+        service: cart
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for cart in dev
+    - exp_labels:
+        environment: dev
+        service: orders
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for orders in dev
+    - exp_labels:
+        environment: staging
+        service: frontend
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for frontend in staging
+    - exp_labels:
+        environment: staging
+        service: catalogue
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for catalogue in staging
+    - exp_labels:
+        environment: staging
+        service: cart
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for cart in staging
+    - exp_labels:
+        environment: staging
+        service: orders
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for orders in staging
+    - exp_labels:
+        environment: production
+        service: frontend
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for frontend in production
+    - exp_labels:
+        environment: production
+        service: catalogue
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for catalogue in production
+    - exp_labels:
+        environment: production
+        service: cart
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for cart in production
+    - exp_labels:
+        environment: production
+        service: orders
+        cluster: homelab
+        severity: critical
+      exp_annotations:
+        summary: No running scrape targets for orders in production

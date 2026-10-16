@@ -170,3 +170,14 @@ monitoring-wide HA, scheduled/off-host backups and complete DR acceptance remain
 separate target-host work. Existing [validation.md](validation.md) records the
 component evidence and these limits; [recovery targets](recovery-targets.md) and
 [the DR runbook](runbooks/disaster-recovery.md) describe objectives to measure.
+
+
+## Shared observability extension
+
+The shared Helm profile now observes all three application namespaces, with
+namespaced workload-state permissions, digest-pinned exporters and production
+SLO burn alerts. `monitoring/shared-rules.test.yml` tests sustained errors, healthy
+traffic, low-volume safeguards, non-production exclusion and all twelve missing
+service/environment combinations. The render validator and routing checks cover
+both shared Slack receivers and the retained optional ServiceNow path. See the
+GitOps monitoring README for live verification and unimplemented boundaries.
