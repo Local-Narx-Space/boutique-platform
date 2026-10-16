@@ -132,3 +132,48 @@ Declarative syntax. It exercises failure propagation with no external deploy.
 It does not prove GHCR authorization, remote agent provisioning, the complete
 application pipeline, Argo sync, notifications or database restore. Verify those
 on the target host and retain ordinary build/test/operation reports.
+
+## Restricted verification credentials on the existing host-networked agent
+
+The current boutique-build-agent uses Docker host networking, so the kind API
+https://127.0.0.1:41775 is reachable from that agent. Do not use this endpoint for
+an agent on another host/network without an appropriate reachable TLS endpoint.
+Never disable certificate verification or upload the administrator kubeconfig.
+
+Apply platform/kubernetes/jenkins-verification-rbac.yaml with the administrator.
+It defines three separate User identities, boutique:jenkins-verifier:ENV. Each can
+get/list/watch Deployments in its own environment namespace and get only its
+named Argo Application. It cannot list Secrets, change deployments, synchronize
+Argo, or inspect another environment through these grants.
+
+From the platform repository on Debian:
+
+```bash
+kubectl --context kind-mega-local apply -f kubernetes/jenkins-verification-rbac.yaml
+bash scripts/create-verifier-kubeconfig.sh dev
+bash scripts/create-verifier-kubeconfig.sh staging
+bash scripts/create-verifier-kubeconfig.sh production
+```
+
+The helper is administrator bootstrap, not a service pipeline step. It generates
+a private key locally, requests a finite-lived client certificate through the
+Kubernetes CSR API, approves only its newly generated request, and embeds that
+certificate and the public cluster CA into ~/.kube/boutique-verification/ENV.config.
+Directories are mode 700 and output files mode 600. The administrator identity is
+not copied. It verifies the issued credential's actual read access before writing
+the output and refuses to overwrite an existing credential accidentally.
+
+Upload each output as a Jenkins Secret File credential named kubeconfig-dev,
+kubeconfig-staging, or kubeconfig-production. Do not paste its contents into chat,
+console logs, Git or environment variables. Give these credentials only to trusted
+verification jobs. The certificate requests thirty days; the signer can cap that
+lifetime, and the helper prints the actual certificate expiration. Rotate and
+replace the Jenkins credential before expiry. Move the existing local file to a
+protected backup path before intentional regeneration; existing client certificates
+remain valid until expiry. Removing RoleBindings revokes their RBAC grants.
+
+This is a finite-lived certificate bootstrap for this private kind cluster. Cloud
+production should prefer the platform's workload identity/OIDC integration or an
+automated certificate lifecycle rather than manual credential renewal. Rotation
+is not automated by this helper. Review CSR approvals and retain the public CSR
+objects/API audit trail; Jenkins gets no CSR creation or approval rights.
