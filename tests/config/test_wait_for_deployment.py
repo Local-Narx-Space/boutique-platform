@@ -36,8 +36,10 @@ class DeploymentWaitTests(unittest.TestCase):
         self.root = self.folder/'gitops'
         shutil.copytree(SOURCE/'scripts',self.root/'scripts',ignore=shutil.ignore_patterns('__pycache__'))
         shutil.copytree(SOURCE/'environments',self.root/'environments')
-        shutil.copytree(SOURCE/'lab-profiles',self.root/'lab-profiles')
         shutil.copytree(SOURCE/'laptop-profiles',self.root/'laptop-profiles')
+        profile=self.root/'laptop-profiles/dev/values.yaml'
+        data=yaml.safe_load(profile.read_text());data['progressiveDelivery']={'enabled':False}
+        profile.write_text(yaml.safe_dump(data))
         values=self.root/'environments/dev/releases.yaml';data=yaml.safe_load(values.read_text())
         for service in waiter.SERVICES:data[service]['image']={'repository':'ghcr.io/subhankar12-spec/boutique-'+service,'digest':'sha256:'+'a'*64,'tag':''}
         values.write_text(yaml.safe_dump(data,sort_keys=False))
@@ -73,8 +75,8 @@ class DeploymentWaitTests(unittest.TestCase):
 
     def application(self,revision=None,path='environments/dev'):
         source={'repoURL':waiter.REPOSITORY,'targetRevision':'main','path':path,'helm':{'releaseName':'boutique-dev','valueFiles':['values.yaml','releases.yaml']}}
-        if path=='lab-profiles/dev':
-            source['path']='environments/dev';source['helm']['valueFiles'].append('../../lab-profiles/dev/values.yaml')
+        if path=='laptop-profiles/dev':
+            source['path']='environments/dev';source['helm']['valueFiles'].append('../../laptop-profiles/dev/values.yaml')
         return {'apiVersion':'argoproj.io/v1alpha1','kind':'Application',
                 'metadata':{'name':'boutique-dev','namespace':'argocd'},
                 'spec':{'source':source,'destination':{'server':'https://kubernetes.default.svc','namespace':'boutique-dev'}},
@@ -117,7 +119,7 @@ class DeploymentWaitTests(unittest.TestCase):
 
     def test_unrelated_reviewed_descendant_returns_actual_revision(self):
         actual=self.descendant()
-        result,_=self.poll(app=self.application(actual,path='lab-profiles/dev'))
+        result,_=self.poll(app=self.application(actual,path='laptop-profiles/dev'))
         self.assertEqual(result,actual)
         self.assertNotEqual(result,self.requested)
 

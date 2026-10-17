@@ -20,6 +20,9 @@ rules:
   - rollouts
   resourceNames:
   - frontend
+  - catalogue
+  - cart
+  - orders
   verbs:
   - get
 - apiGroups:
@@ -28,6 +31,9 @@ rules:
   - services
   resourceNames:
   - frontend
+  - catalogue
+  - cart
+  - orders
   verbs:
   - get
 ---
@@ -95,6 +101,9 @@ rules:
   - rollouts
   resourceNames:
   - frontend
+  - catalogue
+  - cart
+  - orders
   verbs:
   - get
 - apiGroups:
@@ -103,6 +112,9 @@ rules:
   - services
   resourceNames:
   - frontend
+  - catalogue
+  - cart
+  - orders
   verbs:
   - get
 ---
@@ -170,6 +182,9 @@ rules:
   - rollouts
   resourceNames:
   - frontend
+  - catalogue
+  - cart
+  - orders
   verbs:
   - get
 - apiGroups:
@@ -178,6 +193,9 @@ rules:
   - services
   resourceNames:
   - frontend
+  - catalogue
+  - cart
+  - orders
   verbs:
   - get
 ---
