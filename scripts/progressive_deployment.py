@@ -1,4 +1,4 @@
-"""Read-only verification of the version actually serving a blue/green frontend."""
+"""Read-only verification of the version actually serving a blue/green service."""
 import re
 
 
@@ -15,19 +15,21 @@ def observed(value):
     raise ProgressiveError('Invalid Rollout observed generation')
 
 
-def ready(deployment, rollout, replicasets, service, environment, image):
+def ready(deployment, rollout, replicasets, service, environment, image, name="frontend"):
+    if name not in ('frontend', 'catalogue', 'cart', 'orders'):
+        raise ProgressiveError('Unexpected progressive service')
     namespace = 'boutique-' + environment
     for item, kind in [(deployment, 'Deployment'), (rollout, 'Rollout'), (service, 'Service')]:
         meta = item.get('metadata', {})
-        if item.get('kind') != kind or meta.get('namespace') != namespace or meta.get('name') != 'frontend' or meta.get('deletionTimestamp'):
-            raise ProgressiveError('Progressive resource identity differs from the expected frontend')
+        if item.get('kind') != kind or meta.get('namespace') != namespace or meta.get('name') != name or meta.get('deletionTimestamp'):
+            raise ProgressiveError('Progressive resource identity differs from the expected service')
     spec, status = rollout.get('spec', {}), rollout.get('status', {})
-    if spec.get('workloadRef') != {'apiVersion': 'apps/v1', 'kind': 'Deployment', 'name': 'frontend', 'scaleDown': 'onsuccess'}:
+    if spec.get('workloadRef') != {'apiVersion': 'apps/v1', 'kind': 'Deployment', 'name': name, 'scaleDown': 'onsuccess'}:
         raise ProgressiveError('Unexpected progressive workload reference')
     strategy = spec.get('strategy', {}).get('blueGreen', {})
-    if not spec.get('progressDeadlineAbort') or strategy.get('activeService') != 'frontend' or strategy.get('previewService') != 'frontend-preview':
+    if not spec.get('progressDeadlineAbort') or strategy.get('activeService') != name or strategy.get('previewService') != name + '-preview':
         raise ProgressiveError('Expected abort-enabled blue/green strategy')
-    for phase, template in [('prePromotionAnalysis', 'frontend-preview-check'), ('postPromotionAnalysis', 'frontend-serving-check')]:
+    for phase, template in [('prePromotionAnalysis', name + '-preview-check'), ('postPromotionAnalysis', name + '-serving-check')]:
         if strategy.get(phase, {}).get('templates') != [{'templateName': template}]:
             raise ProgressiveError('Required progressive analysis is missing')
     conditions = {item.get('type'): item for item in status.get('conditions', [])}
@@ -60,14 +62,14 @@ def ready(deployment, rollout, replicasets, service, environment, image):
     if revision != '1':
         for phase, suffix in [('prePromotionAnalysisRunStatus', 'pre'), ('postPromotionAnalysisRunStatus', 'post')]:
             analysis = status.get('blueGreen', {}).get(phase, {})
-            if analysis.get('status') != 'Successful' or analysis.get('name') != 'frontend-' + stable + '-' + revision + '-' + suffix:
+            if analysis.get('status') != 'Successful' or analysis.get('name') != name + '-' + stable + '-' + revision + '-' + suffix:
                 return False
     if stable != status.get('currentPodHash') or stable != status.get('blueGreen', {}).get('activeSelector'):
         return False
     selector = service.get('spec', {}).get('selector', {})
-    if selector.get('rollouts-pod-template-hash') != stable or selector.get('app.kubernetes.io/name') != 'frontend':
+    if selector.get('rollouts-pod-template-hash') != stable or selector.get('app.kubernetes.io/name') != name:
         raise ProgressiveError('Active Service does not select the verified stable ReplicaSet')
-    matches = [item for item in replicasets.get('items', []) if item.get('metadata', {}).get('name') == 'frontend-' + stable]
+    matches = [item for item in replicasets.get('items', []) if item.get('metadata', {}).get('name') == name + '-' + stable]
     if len(matches) != 1:
         return False
     active = matches[0]
@@ -80,9 +82,9 @@ def ready(deployment, rollout, replicasets, service, environment, image):
     if meta.get('labels', {}).get('rollouts-pod-template-hash') != stable:
         raise ProgressiveError('Serving ReplicaSet hash does not match the Service')
     containers = active.get('spec', {}).get('template', {}).get('spec', {}).get('containers', [])
-    frontend = [container for container in containers if container.get('name') == 'frontend']
-    if len(frontend) != 1 or frontend[0].get('image') != image:
-        raise ProgressiveError('Serving frontend image differs from the approved release')
+    selected = [container for container in containers if container.get('name') == name]
+    if len(selected) != 1 or selected[0].get('image') != image:
+        raise ProgressiveError('Serving service image differs from the approved release')
     if deployment.get('spec', {}).get('replicas') != 0:
         return False  # Reference Deployment is scaled down only after success.
     measured = active.get('status', {})

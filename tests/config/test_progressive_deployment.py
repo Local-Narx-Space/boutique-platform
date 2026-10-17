@@ -105,6 +105,22 @@ class ProgressiveVerification(unittest.TestCase):
         summary.update(status='Successful', name='frontend-old123-1-post')
         self.assertFalse(self.ready())
 
+    def test_all_services_verify_active_image_and_reject_abort_and_drift(self):
+        import json
+        for name in ('catalogue', 'cart', 'orders'):
+            objects = json.loads(json.dumps([self.deployment, self.rollout, self.rs, self.service]).replace('frontend', name))
+            deployment, rollout, rs, service = objects
+            image = IMAGE.replace('frontend', name)
+            with self.subTest(service=name):
+                self.assertTrue(module.ready(deployment, rollout, {'items':[rs]}, service, 'staging', image, name))
+                rollout['status']['abort'] = True
+                with self.assertRaises(module.ProgressiveError):
+                    module.ready(deployment, rollout, {'items':[rs]}, service, 'staging', image, name)
+                rollout['status'].pop('abort')
+                rs['spec']['template']['spec']['containers'][0]['image'] = image.replace('a'*64, 'b'*64)
+                with self.assertRaises(module.ProgressiveError):
+                    module.ready(deployment, rollout, {'items':[rs]}, service, 'staging', image, name)
+
     def polling_fixture(self):
         from test_wait_for_deployment import DeploymentWaitTests, Clock, waiter
         helper = DeploymentWaitTests('test_unrelated_reviewed_descendant_returns_actual_revision')
@@ -138,6 +154,36 @@ class ProgressiveVerification(unittest.TestCase):
         self.assertTrue(history.progressive_frontend)
         self.assertIn(('boutique-dev', ['replicasets']), calls)
         self.assertIn(('boutique-dev', ['service', 'frontend']), calls)
+
+    def test_poll_verifies_every_backend_and_blocks_backend_abort(self):
+        import json
+        helper, app, calls, original_read, clock, waiter = self.polling_fixture()
+        path = helper.root/'environments/dev/values.yaml'
+        values=yaml.safe_load(path.read_text());values['progressiveDelivery']['backendsEnabled']=True
+        path.write_text(yaml.safe_dump(values));helper.requested=helper.commit()
+        helper.git('update-ref','refs/remotes/origin/main',helper.requested)
+        app['status']['sync']['revision']=helper.requested
+        deployments=helper.deployments()
+        for deployment in deployments['items']: deployment['spec']['replicas']=0
+        def read(namespace, resource, **kwargs):
+            calls.append((namespace, resource))
+            if namespace=='argocd':return copy.deepcopy(app)
+            if resource[0]=='deployments':return copy.deepcopy(deployments)
+            name=resource[1] if len(resource)>1 else 'frontend'
+            if resource[0]=='replicasets':
+                return {'items':[json.loads(json.dumps(self.rs).replace('frontend',name)) for name in waiter.SERVICES]}
+            obj=self.rollout if resource[0]=='rollout.argoproj.io' else self.service
+            return json.loads(json.dumps(obj).replace('frontend',name))
+        history=helper.history()
+        self.assertEqual(waiter.wait_for_deployment(history,10,read=read,clock=clock,sleep=clock.sleep),helper.requested)
+        self.assertEqual(history.progressive_services,waiter.SERVICES)
+        for name in waiter.SERVICES:self.assertIn(('boutique-dev',['service',name]),calls)
+        def aborted(namespace, resource, **kwargs):
+            obj=read(namespace,resource,**kwargs)
+            if resource==['rollout.argoproj.io','orders']:obj['status']['abort']=True
+            return obj
+        with self.assertRaisesRegex(waiter.DeploymentError,'not release success'):
+            waiter.wait_for_deployment(helper.history(),10,read=aborted,clock=clock,sleep=clock.sleep)
 
     def test_degraded_abort_fails_without_waiting_for_timeout(self):
         helper, app, calls, read, clock, waiter = self.polling_fixture()

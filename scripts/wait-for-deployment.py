@@ -56,6 +56,7 @@ class TrustedHistory:
     def __init__(self, root, environment, service, image, requested):
         self.root = Path(root)
         self.progressive_frontend = False
+        self.progressive_services = ()
         self.environment, self.service, self.image, self.requested = environment, service, image, requested
         if environment not in ENVIRONMENTS or service not in SERVICES:
             raise DeploymentError('Invalid environment or service')
@@ -172,7 +173,7 @@ def application_revision(application, environment, history):
     return history.validate_revision(sync.get('revision'))
 
 
-def rollout_complete(deployments, environment, service, image, *, progressive_frontend=False):
+def rollout_complete(deployments, environment, service, image, *, progressive_frontend=False, progressive_services=()):
     if not isinstance(deployments, dict) or deployments.get('kind') not in ('List', 'DeploymentList') or not isinstance(deployments.get('items'), list):
         raise DeploymentError('Expected a native Deployment collection')
     ready = True
@@ -195,7 +196,7 @@ def rollout_complete(deployments, environment, service, image, *, progressive_fr
             raise DeploymentError('A running application Deployment still selects a mutable or invalid image')
         if name == service and expected_image != image:
             ready = False
-        if name == 'frontend' and progressive_frontend:
+        if name in progressive_services or (name == 'frontend' and progressive_frontend):
             continue  # Active Rollout ReplicaSet and Service are verified separately.
         desired, generation = spec.get('replicas', 1), metadata.get('generation')
         if type(desired) is not int or desired < 1 or type(generation) is not int or generation < 1:
@@ -238,10 +239,11 @@ def native_json(namespace, resource, *, timeout):
     return result
 
 
-def progressive_enabled(history, application, revision):
+def progressive_services(history, application, revision):
     source = application.get('spec', {}).get('source', {})
     approved_source(source, history.environment)
     enabled = False
+    backends = False
     for relative in source.get('helm', {}).get('valueFiles', []):
         path = posixpath.normpath('environments/' + history.environment + '/' + relative)
         document = yaml.safe_load(history.git('show', revision + ':' + path))
@@ -252,22 +254,32 @@ def progressive_enabled(history, application, revision):
             if not isinstance(config, dict) or type(config.get('enabled')) is not bool:
                 raise DeploymentError('Progressive delivery requires an explicit boolean switch')
             enabled = config['enabled']
-    return enabled
+            if 'backendsEnabled' in config:
+                if type(config['backendsEnabled']) is not bool:
+                    raise DeploymentError('Backend delivery requires a boolean switch')
+                backends = config['backendsEnabled']
+    if backends and not enabled:
+        raise DeploymentError('Backend delivery requires progressive delivery')
+    return SERVICES if enabled and backends else ('frontend',) if enabled else ()
 
 
-def verify_progressive(history, deployments, read, deadline, clock):
+def progressive_enabled(history, application, revision):
+    return bool(progressive_services(history, application, revision))
+
+
+def verify_progressive(history, deployments, read, deadline, clock, name="frontend"):
     namespace = 'boutique-' + history.environment
     request = lambda resource: read(namespace, resource, timeout=max(1, deadline-clock()))
-    deployment = next(item for item in deployments['items'] if item.get('metadata', {}).get('name') == 'frontend')
-    image = next(container['image'] for container in deployment['spec']['template']['spec']['containers'] if container['name'] == 'frontend')
-    rollout = request(['rollout.argoproj.io', 'frontend'])
+    deployment = next(item for item in deployments['items'] if item.get('metadata', {}).get('name') == name)
+    image = next(container['image'] for container in deployment['spec']['template']['spec']['containers'] if container['name'] == name)
+    rollout = request(['rollout.argoproj.io', name])
     replicasets = request(['replicasets'])
-    service = request(['service', 'frontend'])
+    service = request(['service', name])
     try:
-        if not progressive_ready(deployment, rollout, replicasets, service, history.environment, image):
+        if not progressive_ready(deployment, rollout, replicasets, service, history.environment, image, name):
             return False
         # Recheck controller state after measuring the actual serving resources.
-        return progressive_ready(deployment, request(['rollout.argoproj.io', 'frontend']), replicasets, service, history.environment, image)
+        return progressive_ready(deployment, request(['rollout.argoproj.io', name]), replicasets, service, history.environment, image, name)
     except ProgressiveError as error:
         raise DeploymentError(str(error)) from error
 
@@ -283,13 +295,15 @@ def wait_for_deployment(history, timeout, *, read=native_json, clock=time.monoto
             # A recovered stable version must not bless the attempted release.
             candidate_revision = application.get('status', {}).get('sync', {}).get('revision', '')
             if FULL_SHA.fullmatch(candidate_revision) and history.validate_revision(candidate_revision) and progressive_enabled(history, application, candidate_revision):
-                rollout = read('boutique-' + history.environment, ['rollout.argoproj.io', 'frontend'], timeout=max(1, deadline-clock()))
-                if rollout.get('status', {}).get('abort') is True or rollout.get('status', {}).get('phase') == 'Degraded':
-                    raise DeploymentError('Progressive release aborted; stable traffic recovered but promotion is blocked')
+                for name in progressive_services(history, application, candidate_revision):
+                    rollout = read('boutique-' + history.environment, ['rollout.argoproj.io', name], timeout=max(1, deadline-clock()))
+                    if rollout.get('status', {}).get('abort') is True or rollout.get('status', {}).get('phase') == 'Degraded':
+                        raise DeploymentError('Progressive release aborted; stable traffic recovered but promotion is blocked')
         if revision:
-            history.progressive_frontend = progressive_enabled(history, application, revision)
+            history.progressive_services = progressive_services(history, application, revision)
+            history.progressive_frontend = 'frontend' in history.progressive_services
             deployments = read('boutique-' + history.environment, ['deployments'], timeout=max(1, deadline-clock()))
-            if rollout_complete(deployments, history.environment, history.service, history.image, progressive_frontend=history.progressive_frontend) and (not history.progressive_frontend or verify_progressive(history, deployments, read, deadline, clock)):
+            if rollout_complete(deployments, history.environment, history.service, history.image, progressive_services=history.progressive_services) and all(verify_progressive(history, deployments, read, deadline, clock, name) for name in history.progressive_services):
                 # Check Argo again after workload measurements. A concurrent sync
                 # must settle and be bound to its actual revision before returning.
                 final = read('argocd', ['application', 'boutique-' + history.environment], timeout=max(1, deadline-clock()))
@@ -324,7 +338,7 @@ def main():
             temporary.replace(args.output)
         if args.workloads_output:
             args.workloads_output.parent.mkdir(parents=True, exist_ok=True)
-            args.workloads_output.write_text(json.dumps({'frontend': 'Rollout' if history.progressive_frontend else 'Deployment'}) + '\n')
+            args.workloads_output.write_text(json.dumps({name: 'Rollout' if name in history.progressive_services else 'Deployment' for name in SERVICES}) + '\n')
         print(revision)
         return 0
     except (DeploymentError, ValueError, TypeError, KeyError, AttributeError, OSError) as error:
