@@ -10,6 +10,8 @@ import time
 import urllib.error
 import urllib.request
 
+CLIENT_HEADERS = {'User-Agent': 'BoutiqueSmoke/1.0', 'Accept': 'application/json'}
+
 CHECKS = ['browse','cart','validation','origin','session_isolation','server_pricing','checkout','repeat_idempotency','concurrent_idempotency','order_ownership','empty_cart','deletion']
 
 def require(condition, description):
@@ -21,7 +23,8 @@ def run(base):
         return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
     a,b=browser(),browser()
     def req(client,path,method='GET',body=None,key=None,origin=True):
-        headers={'Origin':base} if origin else {}
+        headers=dict(CLIENT_HEADERS)
+        if origin: headers['Origin']=base
         if key: headers['Idempotency-Key']=key
         if body is not None: headers['Content-Type']='application/json'
         request=urllib.request.Request(base+path,data=json.dumps(body).encode() if body is not None else (b'' if method=='POST' else None),headers=headers,method=method)
@@ -50,7 +53,7 @@ def run(base):
     require(req(b,'/api/orders','POST',key='smoke-empty-001')[0]==409,'empty checkout')
     cookie='; '.join(f'{item.name}={item.value}' for handler in a.handlers if hasattr(handler,'cookiejar') for item in handler.cookiejar)
     def retry(_):
-        request=urllib.request.Request(base+'/api/orders',data=b'',headers={'Origin':base,'Cookie':cookie,'Idempotency-Key':'smoke-concurrent-001'},method='POST')
+        request=urllib.request.Request(base+'/api/orders',data=b'',headers={**CLIENT_HEADERS,'Origin':base,'Cookie':cookie,'Idempotency-Key':'smoke-concurrent-001'},method='POST')
         with urllib.request.urlopen(request,timeout=15) as response: return json.load(response)['id']
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         require(len(set(pool.map(retry,range(4))))==1,'concurrent idempotency')
