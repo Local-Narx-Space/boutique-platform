@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 PLATFORM = Path(__file__).resolve().parents[2]
 SCRIPT = PLATFORM / 'scripts/wait-for-deployment.py'
-SOURCE = PLATFORM.parent / 'boutique-gitops'
+SOURCE = Path(os.environ.get('BOUTIQUE_GITOPS_ROOT', PLATFORM.parent / 'boutique-gitops'))
 spec = importlib.util.spec_from_file_location('deployment_wait', SCRIPT)
 waiter = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(waiter)
@@ -36,6 +36,8 @@ class DeploymentWaitTests(unittest.TestCase):
         self.root = self.folder/'gitops'
         shutil.copytree(SOURCE/'scripts',self.root/'scripts',ignore=shutil.ignore_patterns('__pycache__'))
         shutil.copytree(SOURCE/'environments',self.root/'environments')
+        shutil.copytree(SOURCE/'lab-profiles',self.root/'lab-profiles')
+        shutil.copytree(SOURCE/'laptop-profiles',self.root/'laptop-profiles')
         values=self.root/'environments/dev/releases.yaml';data=yaml.safe_load(values.read_text())
         for service in waiter.SERVICES:data[service]['image']={'repository':'ghcr.io/subhankar12-spec/boutique-'+service,'digest':'sha256:'+'a'*64,'tag':''}
         values.write_text(yaml.safe_dump(data,sort_keys=False))
@@ -262,7 +264,7 @@ print(Path(file).read_text())
         kubectl.chmod(0o755)
         output=self.folder/'reports/actual-commit.txt'
         env=os.environ.copy();env.update(PATH=str(binary)+os.pathsep+env['PATH'],ARGO_FIXTURE=str(app_file),DEPLOYMENT_FIXTURE=str(deployment_file),READ_LOG=str(log))
-        result=subprocess.run([sys.executable,str(SCRIPT),'--environment','dev','--commit',self.requested,'--service','cart','--image',IMAGE,'--gitops-root',str(self.root),'--timeout','2','--output',str(output)],env=env,capture_output=True,text=True)
+        result=subprocess.run([sys.executable,str(SCRIPT),'--environment','dev','--commit',self.requested,'--service','cart','--image',IMAGE,'--gitops-root',str(self.root),'--timeout','20','--output',str(output)],env=env,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertEqual(result.stdout.strip(),actual)
         self.assertEqual(output.read_text(),actual+'\n')

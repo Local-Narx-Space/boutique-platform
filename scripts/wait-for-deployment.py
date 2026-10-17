@@ -9,11 +9,16 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import posixpath
+import yaml
 from pathlib import Path
 import re
 import subprocess
 import sys
 import time
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from progressive_deployment import ready as progressive_ready, ProgressiveError
 
 REPOSITORY = 'https://github.com/subhankar12-spec/boutique-gitops.git'
 SERVICES = ('frontend', 'catalogue', 'cart', 'orders')
@@ -50,6 +55,7 @@ def load_release_config(root):
 class TrustedHistory:
     def __init__(self, root, environment, service, image, requested):
         self.root = Path(root)
+        self.progressive_frontend = False
         self.environment, self.service, self.image, self.requested = environment, service, image, requested
         if environment not in ENVIRONMENTS or service not in SERVICES:
             raise DeploymentError('Invalid environment or service')
@@ -166,7 +172,7 @@ def application_revision(application, environment, history):
     return history.validate_revision(sync.get('revision'))
 
 
-def rollout_complete(deployments, environment, service, image):
+def rollout_complete(deployments, environment, service, image, *, progressive_frontend=False):
     if not isinstance(deployments, dict) or deployments.get('kind') not in ('List', 'DeploymentList') or not isinstance(deployments.get('items'), list):
         raise DeploymentError('Expected a native Deployment collection')
     ready = True
@@ -189,6 +195,8 @@ def rollout_complete(deployments, environment, service, image):
             raise DeploymentError('A running application Deployment still selects a mutable or invalid image')
         if name == service and expected_image != image:
             ready = False
+        if name == 'frontend' and progressive_frontend:
+            continue  # Active Rollout ReplicaSet and Service are verified separately.
         desired, generation = spec.get('replicas', 1), metadata.get('generation')
         if type(desired) is not int or desired < 1 or type(generation) is not int or generation < 1:
             raise DeploymentError('Invalid desired replica count or Deployment generation')
@@ -230,6 +238,40 @@ def native_json(namespace, resource, *, timeout):
     return result
 
 
+def progressive_enabled(history, application, revision):
+    source = application.get('spec', {}).get('source', {})
+    approved_source(source, history.environment)
+    enabled = False
+    for relative in source.get('helm', {}).get('valueFiles', []):
+        path = posixpath.normpath('environments/' + history.environment + '/' + relative)
+        document = yaml.safe_load(history.git('show', revision + ':' + path))
+        if not isinstance(document, dict):
+            raise DeploymentError('Trusted Helm values must be an object')
+        if 'progressiveDelivery' in document:
+            config = document['progressiveDelivery']
+            if not isinstance(config, dict) or type(config.get('enabled')) is not bool:
+                raise DeploymentError('Progressive delivery requires an explicit boolean switch')
+            enabled = config['enabled']
+    return enabled
+
+
+def verify_progressive(history, deployments, read, deadline, clock):
+    namespace = 'boutique-' + history.environment
+    request = lambda resource: read(namespace, resource, timeout=max(1, deadline-clock()))
+    deployment = next(item for item in deployments['items'] if item.get('metadata', {}).get('name') == 'frontend')
+    image = next(container['image'] for container in deployment['spec']['template']['spec']['containers'] if container['name'] == 'frontend')
+    rollout = request(['rollout.argoproj.io', 'frontend'])
+    replicasets = request(['replicasets'])
+    service = request(['service', 'frontend'])
+    try:
+        if not progressive_ready(deployment, rollout, replicasets, service, history.environment, image):
+            return False
+        # Recheck controller state after measuring the actual serving resources.
+        return progressive_ready(deployment, request(['rollout.argoproj.io', 'frontend']), replicasets, service, history.environment, image)
+    except ProgressiveError as error:
+        raise DeploymentError(str(error)) from error
+
+
 def wait_for_deployment(history, timeout, *, read=native_json, clock=time.monotonic, sleep=time.sleep):
     if type(timeout) is not int or not 1 <= timeout <= 1800:
         raise DeploymentError('Timeout must be between 1 and 1800 seconds')
@@ -237,9 +279,17 @@ def wait_for_deployment(history, timeout, *, read=native_json, clock=time.monoto
     while clock() < deadline:
         application = read('argocd', ['application', 'boutique-' + history.environment], timeout=max(1, deadline-clock()))
         revision = application_revision(application, history.environment, history)
+        if not revision and application and application.get('status', {}).get('health', {}).get('status') == 'Degraded':
+            # A recovered stable version must not bless the attempted release.
+            candidate_revision = application.get('status', {}).get('sync', {}).get('revision', '')
+            if FULL_SHA.fullmatch(candidate_revision) and history.validate_revision(candidate_revision) and progressive_enabled(history, application, candidate_revision):
+                rollout = read('boutique-' + history.environment, ['rollout.argoproj.io', 'frontend'], timeout=max(1, deadline-clock()))
+                if rollout.get('status', {}).get('abort') is True or rollout.get('status', {}).get('phase') == 'Degraded':
+                    raise DeploymentError('Progressive release aborted; stable traffic recovered but promotion is blocked')
         if revision:
+            history.progressive_frontend = progressive_enabled(history, application, revision)
             deployments = read('boutique-' + history.environment, ['deployments'], timeout=max(1, deadline-clock()))
-            if rollout_complete(deployments, history.environment, history.service, history.image):
+            if rollout_complete(deployments, history.environment, history.service, history.image, progressive_frontend=history.progressive_frontend) and (not history.progressive_frontend or verify_progressive(history, deployments, read, deadline, clock)):
                 # Check Argo again after workload measurements. A concurrent sync
                 # must settle and be bound to its actual revision before returning.
                 final = read('argocd', ['application', 'boutique-' + history.environment], timeout=max(1, deadline-clock()))
@@ -262,6 +312,7 @@ def main():
     parser.add_argument('--gitops-root', type=Path, required=True)
     parser.add_argument('--timeout', type=int, default=480)
     parser.add_argument('--output', type=Path)
+    parser.add_argument('--workloads-output', type=Path, help='Verified workload kinds for downstream read-only reporting')
     args = parser.parse_args()
     try:
         history = TrustedHistory(args.gitops_root, args.environment, args.service, args.image, args.commit)
@@ -271,6 +322,9 @@ def main():
             temporary = args.output.with_name(args.output.name + '.pending')
             temporary.write_text(revision + '\n')
             temporary.replace(args.output)
+        if args.workloads_output:
+            args.workloads_output.parent.mkdir(parents=True, exist_ok=True)
+            args.workloads_output.write_text(json.dumps({'frontend': 'Rollout' if history.progressive_frontend else 'Deployment'}) + '\n')
         print(revision)
         return 0
     except (DeploymentError, ValueError, TypeError, KeyError, AttributeError, OSError) as error:
