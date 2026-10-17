@@ -304,7 +304,7 @@ documented separately in boutique-ci/docs/release-flow.md.
 
 ## 9. Open and functionally test the application
 
-The configured public laptop origin is https://boutique.narx.space. Use the
+The configured public laptop origin is https://dev-boutique.narx.space. Use the
 Cloudflare route documented in boutique-gitops/laptop-profiles/dev/README.md.
 The following port-forward is an optional localhost exercise: first restore
 PUBLIC_ORIGIN=http://localhost:8088 and COOKIE_SECURE=false through Git if you
