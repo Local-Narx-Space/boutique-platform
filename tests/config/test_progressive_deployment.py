@@ -185,6 +185,21 @@ class ProgressiveVerification(unittest.TestCase):
         with self.assertRaisesRegex(waiter.DeploymentError,'not release success'):
             waiter.wait_for_deployment(helper.history(),10,read=aborted,clock=clock,sleep=clock.sleep)
 
+    def test_inflight_sync_waits_through_transient_degraded_health(self):
+        helper, app, calls, original_read, clock, waiter = self.polling_fixture()
+        first=True
+        def read(namespace,resource,**kwargs):
+            nonlocal first
+            if namespace=='argocd' and first:
+                first=False
+                transient=copy.deepcopy(app)
+                transient['status']['health']['status']='Degraded'
+                transient['status']['operationState']['phase']='Running'
+                return transient
+            return original_read(namespace,resource,**kwargs)
+        self.assertEqual(waiter.wait_for_deployment(helper.history(),10,read=read,clock=clock,sleep=clock.sleep),helper.requested)
+        self.assertEqual(clock.now,5)
+
     def test_degraded_abort_fails_without_waiting_for_timeout(self):
         helper, app, calls, read, clock, waiter = self.polling_fixture()
         app['status']['health']['status'] = 'Degraded'

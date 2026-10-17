@@ -291,7 +291,9 @@ def wait_for_deployment(history, timeout, *, read=native_json, clock=time.monoto
     while clock() < deadline:
         application = read('argocd', ['application', 'boutique-' + history.environment], timeout=max(1, deadline-clock()))
         revision = application_revision(application, history.environment, history)
-        if not revision and application and application.get('status', {}).get('health', {}).get('status') == 'Degraded':
+        if (not revision and application
+                and application.get('status', {}).get('health', {}).get('status') == 'Degraded'
+                and application.get('status', {}).get('operationState', {}).get('phase') not in ('Running', 'Pending')):
             # A recovered stable version must not bless the attempted release.
             candidate_revision = application.get('status', {}).get('sync', {}).get('revision', '')
             if FULL_SHA.fullmatch(candidate_revision) and history.validate_revision(candidate_revision) and progressive_enabled(history, application, candidate_revision):
