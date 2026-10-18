@@ -64,7 +64,7 @@ for repo in frontend catalogue cart orders ci infrastructure gitops platform; do
   if [ -e "boutique-$repo" ]; then
     printf 'Keeping existing directory: boutique-%s\n' "$repo"
   else
-    git clone "https://github.com/subhankar12-spec/boutique-$repo.git" || break
+    git clone "https://github.com/Local-Narx-Space/boutique-$repo.git" || break
   fi
 done
 ~~~

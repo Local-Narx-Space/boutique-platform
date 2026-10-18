@@ -148,14 +148,14 @@ Code workspace does not turn them into a monorepo.
 
 | Repository | Main question it answers | Read this first |
 | --- | --- | --- |
-| [boutique-frontend](https://github.com/subhankar12-spec/boutique-frontend) | How does the browser reach the app safely? | src/server.js, src/session.js, Dockerfile |
-| [boutique-catalogue](https://github.com/subhankar12-spec/boutique-catalogue) | Where do products and prices come from? | main.go, metrics.go, Dockerfile |
-| [boutique-cart](https://github.com/subhankar12-spec/boutique-cart) | How are per-session carts stored? | app.py, Dockerfile |
-| [boutique-orders](https://github.com/subhankar12-spec/boutique-orders) | How does checkout create durable orders? | OrdersController.java and the Flyway migration |
-| [boutique-ci](https://github.com/subhankar12-spec/boutique-ci) | How do we test, publish and authorize delivery? | vars/servicePipeline.groovy and pipelines/ |
-| [boutique-infrastructure](https://github.com/subhankar12-spec/boutique-infrastructure) | What AWS resources would support this system? | README.md, environments/ and modules/platform/ |
-| [boutique-gitops](https://github.com/subhankar12-spec/boutique-gitops) | What release/configuration should each environment run? | environments/dev/ and docs/helm-delivery.md |
-| [boutique-platform](https://github.com/subhankar12-spec/boutique-platform) | How do we assemble, verify and operate everything? | This guide, scripts/ and local/ |
+| [boutique-frontend](https://github.com/Local-Narx-Space/boutique-frontend) | How does the browser reach the app safely? | src/server.js, src/session.js, Dockerfile |
+| [boutique-catalogue](https://github.com/Local-Narx-Space/boutique-catalogue) | Where do products and prices come from? | main.go, metrics.go, Dockerfile |
+| [boutique-cart](https://github.com/Local-Narx-Space/boutique-cart) | How are per-session carts stored? | app.py, Dockerfile |
+| [boutique-orders](https://github.com/Local-Narx-Space/boutique-orders) | How does checkout create durable orders? | OrdersController.java and the Flyway migration |
+| [boutique-ci](https://github.com/Local-Narx-Space/boutique-ci) | How do we test, publish and authorize delivery? | vars/servicePipeline.groovy and pipelines/ |
+| [boutique-infrastructure](https://github.com/Local-Narx-Space/boutique-infrastructure) | What AWS resources would support this system? | README.md, environments/ and modules/platform/ |
+| [boutique-gitops](https://github.com/Local-Narx-Space/boutique-gitops) | What release/configuration should each environment run? | environments/dev/ and docs/helm-delivery.md |
+| [boutique-platform](https://github.com/Local-Narx-Space/boutique-platform) | How do we assemble, verify and operate everything? | This guide, scripts/ and local/ |
 
 ### 4.1 Frontend repository
 
@@ -551,7 +551,7 @@ for repo in frontend catalogue cart orders ci infrastructure gitops platform; do
   if [ -e "boutique-$repo" ]; then
     printf 'Preserving existing directory: boutique-%s\n' "$repo"
   else
-    git clone "https://github.com/subhankar12-spec/boutique-$repo.git"
+    git clone "https://github.com/Local-Narx-Space/boutique-$repo.git"
   fi
 done
 ~~~
@@ -973,7 +973,7 @@ necessarily see these applications as ordinary helm list releases. Use GitOps
 history and Argo status for the full delivery track; helm rollback is not this
 project's application recovery workflow.
 
-Read [Helm delivery](https://github.com/subhankar12-spec/boutique-gitops/blob/main/docs/helm-delivery.md)
+Read [Helm delivery](https://github.com/Local-Narx-Space/boutique-gitops/blob/main/docs/helm-delivery.md)
 when you are ready to understand chart checksums and immutable promotion.
 
 ## 12. Understand current Jenkins and GitOps delivery
@@ -1400,7 +1400,7 @@ directory into one module; filenames organize code, not execution order.
 The VPC is a version-pinned terraform-aws-modules/vpc/aws child module.
 Its underlying subnet/route/NAT resources are downloaded on init, so you will
 not see every raw aws_subnet resource in your local networking.tf.
-Read the [module map](https://github.com/subhankar12-spec/boutique-infrastructure/blob/main/modules/platform/README.md).
+Read the [module map](https://github.com/Local-Narx-Space/boutique-infrastructure/blob/main/modules/platform/README.md).
 
 ### 19.2 Networking and managed data
 
@@ -1479,7 +1479,7 @@ the log group has its own retention.
 S3 data events are an optional scoped choice, not blanket default collection.
 This is not an organization-wide trail or a deployed cross-region DR system.
 
-Read [AWS observability](https://github.com/subhankar12-spec/boutique-infrastructure/blob/main/docs/aws-observability.md).
+Read [AWS observability](https://github.com/Local-Narx-Space/boutique-infrastructure/blob/main/docs/aws-observability.md).
 
 ### 19.5 Validate Terraform without provisioning
 
@@ -1538,7 +1538,7 @@ lock files. Nonprod, production and audit have distinct state keys.
 Backend encryption does not remove the need to restrict state access/backups.
 
 Terraform does not provision every platform controller/agent automatically.
-The [infrastructure README](https://github.com/subhankar12-spec/boutique-infrastructure/blob/main/README.md)
+The [infrastructure README](https://github.com/Local-Narx-Space/boutique-infrastructure/blob/main/README.md)
 is the starting point for that separate, paid deployment.
 
 ## 20. Practice failures, backup and recovery
