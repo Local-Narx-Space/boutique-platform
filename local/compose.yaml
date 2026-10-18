@@ -2,32 +2,45 @@ name: boutique
 services:
   frontend:
     build: ../../boutique-frontend
-    ports: ["127.0.0.1:8080:8080"]
+    ports:
+    - 127.0.0.1:${BOUTIQUE_PORT:-8088}:8080
     environment:
       SESSION_SECRET: ${SESSION_SECRET:?Run init-local.sh}
-      PUBLIC_ORIGIN: http://localhost:8080
-      COOKIE_SECURE: "false"
+      PUBLIC_ORIGIN: http://localhost:${BOUTIQUE_PORT:-8088}
+      COOKIE_SECURE: 'false'
       CATALOGUE_URL: http://catalogue:8081
       CART_URL: http://cart:8082
       ORDERS_URL: http://orders:8083
-    depends_on: [catalogue, cart, orders]
+    depends_on:
+    - catalogue
+    - cart
+    - orders
     read_only: true
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
   catalogue:
     build: ../../boutique-catalogue
     read_only: true
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    environment:
+      COMMERCE_URL: http://orders:8083
   cart:
     build: ../../boutique-cart
     environment:
       REDIS_URL: redis://:${REDIS_PASSWORD:?required}@redis:6379/0
     depends_on:
-      redis: {condition: service_healthy}
+      redis:
+        condition: service_healthy
     read_only: true
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
   orders:
     build: ../../boutique-orders
     environment:
@@ -36,20 +49,34 @@ services:
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:?required}
       CATALOGUE_URL: http://catalogue:8081
       CART_URL: http://cart:8082
+      COMMERCE_ENABLED: 'true'
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
     depends_on:
-      postgres: {condition: service_healthy}
+      postgres:
+        condition: service_healthy
     read_only: true
-    tmpfs: [/tmp]
-    cap_drop: [ALL]
-    security_opt: ["no-new-privileges:true"]
+    tmpfs:
+    - /tmp
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
   redis:
     image: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?required}
-    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
-    volumes: [redis-data:/data]
+    command:
+    - sh
+    - -c
+    - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+    volumes:
+    - redis-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
+      test:
+      - CMD-SHELL
+      - REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG
       interval: 5s
       timeout: 3s
       retries: 10
@@ -59,12 +86,15 @@ services:
       POSTGRES_USER: boutique
       POSTGRES_DB: boutique
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?required}
-    volumes: [postgres-data:/var/lib/postgresql/data]
+    volumes:
+    - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U boutique -d boutique"]
+      test:
+      - CMD-SHELL
+      - pg_isready -U boutique -d boutique
       interval: 5s
       timeout: 3s
       retries: 10
 volumes:
-  redis-data:
-  postgres-data:
+  redis-data: null
+  postgres-data: null
