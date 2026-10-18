@@ -19,6 +19,8 @@ def main():
     parser.add_argument('--workspace', type=Path, default=Path(__file__).resolve().parents[3])
     parser.add_argument('--engine-container', help='Optional existing container containing a private Docker CLI/daemon connection')
     parser.add_argument('--skip-build', action='store_true')
+    parser.add_argument('--listen-address', default='127.0.0.1', help='Host address for the local preview port')
+    parser.add_argument('--public-origin', default='http://127.0.0.1:18088', help='Browser origin allowed to submit local storefront forms')
     args = parser.parse_args()
     engine = ['docker']
     if args.engine_container:
@@ -95,14 +97,15 @@ def main():
     run('cart', 'boutique-cart:customer-local', env={'REDIS_URL': 'redis://redis:6379/0'})
     run('frontend', 'boutique-frontend:customer-local', env={
         'SESSION_SECRET': 'disposable-fixture-only-session-secret-never-use-in-a-real-lab',
-        'PUBLIC_ORIGIN': 'http://127.0.0.1:18088', 'COOKIE_SECURE': 'false', 'CATALOGUE_URL': 'http://catalogue:8081',
+        'PUBLIC_ORIGIN': args.public_origin, 'COOKIE_SECURE': 'false', 'CATALOGUE_URL': 'http://catalogue:8081',
         'CART_URL': 'http://cart:8082', 'ORDERS_URL': 'http://orders:8083',
-    }, ports=['127.0.0.1:18088:8080'])
+    }, ports=[args.listen_address + ':18088:8080'])
+    probe_address = args.listen_address if args.listen_address not in ('0.0.0.0', '::') else '127.0.0.1'
     for _ in range(120):
         try:
-            with urllib.request.urlopen('http://127.0.0.1:18088/health/ready', timeout=8) as response:
+            with urllib.request.urlopen('http://' + probe_address + ':18088/health/ready', timeout=8) as response:
                 if response.status == 200:
-                    print('Ready: http://127.0.0.1:18088 — LOCAL SIMULATOR, not a Razorpay sandbox transaction.')
+                    print('Ready: ' + args.public_origin + ' — LOCAL SIMULATOR, not a Razorpay sandbox transaction.')
                     return
         except Exception: pass
         time.sleep(1)
