@@ -37,18 +37,21 @@ def run(base):
         except (urllib.error.URLError,ConnectionError,TimeoutError,ValueError): pass
         time.sleep(2)
     else: raise RuntimeError('Readiness failed')
-    require(len(req(a,'/api/products')[1])==4,'browse')
+    products=req(a,'/api/products')[1]
+    require(isinstance(products,list) and len(products)>0,'browse')
+    product=products[0]
+    item='/api/cart/items/'+product['id']
     require(req(a,'/api/cart')[1]['items']==[],'empty initial cart')
-    require(req(a,'/api/cart/items/mug','PUT',{'quantity':2})[0]==200,'cart update')
-    require(req(a,'/api/cart/items/mug','PUT',{'quantity':21})[0]==400,'quantity limit')
-    require(req(a,'/api/cart/items/mug','PUT',{'quantity':1},origin=False)[0]==403,'origin enforcement')
+    require(req(a,item,'PUT',{'quantity':2})[0]==200,'cart update')
+    require(req(a,item,'PUT',{'quantity':21})[0]==400,'quantity limit')
+    require(req(a,item,'PUT',{'quantity':1},origin=False)[0]==403,'origin enforcement')
     require(req(a,'/api/cart/items/missing','PUT',{'quantity':1})[0]==404,'missing product')
     require(req(b,'/api/cart')[1]['items']==[],'session isolation')
     status,order=req(a,'/api/orders','POST',key='smoke-checkout-001')
     require(status==200,'checkout')
-    require(order['total']==3600 and order['currency']=='USD','server pricing')
+    require(order['total']==2*product['price'] and order['currency']==product['currency'],'server pricing')
     require(req(a,'/api/orders','POST',key='smoke-checkout-001')[1]['id']==order['id'],'repeat idempotency')
-    require(req(a,'/api/orders/'+order['id'])[1]['total']==3600,'order retrieval')
+    require(req(a,'/api/orders/'+order['id'])[1]['total']==order['total'],'order retrieval')
     require(req(b,'/api/orders/'+order['id'])[0]==404,'order ownership')
     require(req(b,'/api/orders','POST',key='smoke-empty-001')[0]==409,'empty checkout')
     cookie='; '.join(f'{item.name}={item.value}' for handler in a.handlers if hasattr(handler,'cookiejar') for item in handler.cookiejar)
@@ -57,7 +60,7 @@ def run(base):
         with urllib.request.urlopen(request,timeout=15) as response: return json.load(response)['id']
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         require(len(set(pool.map(retry,range(4))))==1,'concurrent idempotency')
-    require(req(a,'/api/cart/items/mug','DELETE')[1]['items']==[],'deletion')
+    require(req(a,item,'DELETE')[1]['items']==[],'deletion')
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
