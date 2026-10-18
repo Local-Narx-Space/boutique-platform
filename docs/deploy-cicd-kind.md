@@ -101,7 +101,7 @@ Under **Manage Jenkins → System → Global Untrusted Pipeline Libraries**, add
 | Load implicitly | Off |
 | Allow version override | Off |
 | Retrieval method | Modern SCM / Git |
-| Repository | `https://github.com/subhankar12-spec/boutique-ci.git` |
+| Repository | `https://github.com/Local-Narx-Space/boutique-ci.git` |
 | Credentials | `github-read`, or none for the public library |
 
 Under Global properties, keep `BOUTIQUE_CONTROLLER_ROLE=release`.
@@ -138,7 +138,7 @@ Disable an old Freestyle seed. Create **New Item → Pipeline**, named
 | --- | --- |
 | Definition | Pipeline script from SCM |
 | SCM | Git |
-| Repository | `https://github.com/subhankar12-spec/boutique-ci.git` |
+| Repository | `https://github.com/Local-Narx-Space/boutique-ci.git` |
 | Credentials | `github-read` |
 | Branch specifier | Full reviewed CI commit containing the simplified pipeline |
 | Script Path | `pipelines/seed-release.Jenkinsfile` |

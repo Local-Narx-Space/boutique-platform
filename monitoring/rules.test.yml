@@ -19,7 +19,7 @@ tests:
         severity: critical
       exp_annotations:
         summary: frontend is unavailable in dev
-        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/docs/monitoring.md#service-down
+        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/docs/monitoring.md#service-down
 - interval: 1m
   input_series:
   - series: up{job="boutique",service="frontend"}
@@ -61,7 +61,7 @@ tests:
         incident_delivery: disabled
       exp_annotations:
         summary: Incident delivery exhausted retries; operator recovery is required
-        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery
+        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery
 - interval: 1m
   input_series:
   - series: boutique_incident_oldest_seconds{job="incident-bridge",cluster="production",environment="production",service="incident-bridge",namespace="monitoring",pod="worker-a",instance="worker-a:8084"}
@@ -85,7 +85,7 @@ tests:
     - exp_labels: *id001
       exp_annotations:
         summary: ServiceNow incident delivery has been delayed for over five minutes
-        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery
+        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery
 - interval: 1m
   input_series:
   - series: boutique_incident_worker_heartbeat_age_seconds{job="incident-bridge",cluster="production",environment="production",service="incident-bridge",namespace="monitoring",pod="worker-a",instance="worker-a:8084"}
@@ -112,7 +112,7 @@ tests:
         instance: worker-a:8084
       exp_annotations:
         summary: Incident worker worker-a heartbeat is stale
-        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery
+        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery
   - eval_time: 3m
     alertname: IncidentBridgeUnavailable
     exp_alerts: []
@@ -141,7 +141,7 @@ tests:
         instance: worker-a:8084
       exp_annotations:
         summary: Incident bridge worker-a cannot be scraped
-        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery
+        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery
 - interval: 1m
   input_series: []
   alert_rule_test:
@@ -155,4 +155,4 @@ tests:
         incident_delivery: disabled
       exp_annotations:
         summary: No incident bridge scrape targets are present
-        runbook_url: https://github.com/subhankar12-spec/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery
+        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/monitoring/incident-bridge/README.md#delivery-guarantees-and-failure-recovery

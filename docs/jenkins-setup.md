@@ -43,7 +43,7 @@ include the reviewed plugin and dependencies in boutique-ci's checksum lock.
 ## Shared library and job definitions
 
 Configure the **Global Untrusted Pipeline Library** `boutique-ci`, Modern SCM/Git,
-repository `https://github.com/subhankar12-spec/boutique-ci.git`, default version
+repository `https://github.com/Local-Narx-Space/boutique-ci.git`, default version
 set to a reviewed full commit SHA, implicit loading false and overrides false.
 Set `BOUTIQUE_CONTROLLER_ROLE=release` in global environment properties.
 The variable is a guardrail; it does not isolate code or credentials.

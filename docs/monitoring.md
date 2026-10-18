@@ -16,7 +16,7 @@ routing. No extra webhook is needed for the selected one-channel setup.
 Reapply boutique-gitops/applications/monitoring-homelab.yaml before syncing the
 monitoring Application, because its AppProject gains staging/production RBAC
 scope. The current stack preserves PVCs and existing credentials. See the
-[shared chart operations guide](https://github.com/subhankar12-spec/boutique-gitops/blob/main/monitoring/README.md#shared-cluster-observability)
+[shared chart operations guide](https://github.com/Local-Narx-Space/boutique-gitops/blob/main/monitoring/README.md#shared-cluster-observability)
 for rollout checks, retention, exporter image provenance and limitations.
 
 Public probes check /health/ready without placing orders. Configure all three

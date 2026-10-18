@@ -21,14 +21,14 @@ jobs:
           path: boutique-platform
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: subhankar12-spec/boutique-gitops
+          repository: Local-Narx-Space/boutique-gitops
           ref: main
           path: boutique-gitops
           persist-credentials: false
           fetch-depth: 0
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          repository: subhankar12-spec/boutique-ci
+          repository: Local-Narx-Space/boutique-ci
           ref: 5bd29e86dc2de31c8d7e7724c0d342950f56f955
           path: trusted-ci
           persist-credentials: false

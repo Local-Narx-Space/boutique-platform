@@ -303,7 +303,7 @@ def configure_secrets(cluster, repo_token_file, registry_token_file, registry_us
         raise ValueError('Invalid registry user')
     if repo_token:
         secret(cluster, 'argocd', 'boutique-gitops-repository', {
-            'url': 'https://github.com/subhankar12-spec/boutique-gitops.git', 'username': 'git', 'password': repo_token})
+            'url': 'https://github.com/Local-Narx-Space/boutique-gitops.git', 'username': 'git', 'password': repo_token})
         kube(cluster, '-n', 'argocd', 'label', 'secret', 'boutique-gitops-repository',
              'argocd.argoproj.io/secret-type=repository', '--overwrite')
     auth = base64.b64encode(f'{registry_user}:{registry_token}'.encode()).decode()
@@ -394,11 +394,11 @@ def argo_application(cluster, env, *, monitoring=False):
     # the chart requires no cluster-wide RBAC grants.
     cluster_resources = [{'group': '', 'kind': 'Namespace'}]
     project = {'apiVersion': 'argoproj.io/v1alpha1', 'kind': 'AppProject', 'metadata': {'name': name, 'namespace': 'argocd'},
-               'spec': {'sourceRepos': ['https://github.com/subhankar12-spec/boutique-gitops.git'],
+               'spec': {'sourceRepos': ['https://github.com/Local-Narx-Space/boutique-gitops.git'],
                         'destinations': [{'namespace': ns, 'server': 'https://kubernetes.default.svc'} for ns in namespaces],
                         'clusterResourceWhitelist': cluster_resources, 'namespaceResourceWhitelist': [{'group': '*', 'kind': '*'}]}}
     app = {'apiVersion': 'argoproj.io/v1alpha1', 'kind': 'Application', 'metadata': {'name': name, 'namespace': 'argocd'},
-           'spec': {'project': name, 'source': {'repoURL': 'https://github.com/subhankar12-spec/boutique-gitops.git', 'targetRevision': 'main', 'path': path},
+           'spec': {'project': name, 'source': {'repoURL': 'https://github.com/Local-Narx-Space/boutique-gitops.git', 'targetRevision': 'main', 'path': path},
                     'destination': {'server': 'https://kubernetes.default.svc', 'namespace': destination},
                     'syncPolicy': {'automated': {'prune': True, 'selfHeal': True}, 'syncOptions': ['CreateNamespace=true'],
                                    'retry': {'limit': 3, 'backoff': {'duration': '5s', 'factor': 2, 'maxDuration': '1m'}}}}}

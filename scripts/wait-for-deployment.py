@@ -20,7 +20,7 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from progressive_deployment import ready as progressive_ready, ProgressiveError
 
-REPOSITORY = 'https://github.com/subhankar12-spec/boutique-gitops.git'
+REPOSITORY = 'https://github.com/Local-Narx-Space/boutique-gitops.git'
 SERVICES = ('frontend', 'catalogue', 'cart', 'orders')
 ENVIRONMENTS = ('dev', 'staging', 'production')
 FULL_SHA = re.compile(r'[0-9a-f]{40}')
