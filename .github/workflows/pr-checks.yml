@@ -1,0 +1,46 @@
+name: Pull request checks
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    name: PR checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          path: boutique-platform
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: subhankar12-spec/boutique-gitops
+          ref: main
+          path: boutique-gitops
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          repository: subhankar12-spec/boutique-ci
+          ref: 5bd29e86dc2de31c8d7e7724c0d342950f56f955
+          path: trusted-ci
+          persist-credentials: false
+      - name: Install checksum-verified validation tools
+        run: |
+          python3 trusted-ci/jenkins/scripts/install-agent-tools.py --destination "$RUNNER_TEMP/tools" --only helm kubeconform
+          echo "$RUNNER_TEMP/tools/bin" >> "$GITHUB_PATH"
+      - name: Install YAML parser
+        run: python3 -m pip install PyYAML==6.0.3
+      - name: Test deployment verification and active configuration
+        working-directory: boutique-platform
+        run: python3 -m unittest discover -s tests/config -v
+      - name: Test local platform safety
+        working-directory: boutique-platform
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
