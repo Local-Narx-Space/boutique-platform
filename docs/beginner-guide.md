@@ -263,9 +263,12 @@ boutique-ci/
   vars/releaseArtifact.groovy    Retrieve dev publishing artifacts
   vars/gitopsPullRequest.groovy  Open a reviewable deployment PR
   pipelines/seed-release.Jenkinsfile  Pipeline-based job creation
-  pipelines/promote.Jenkinsfile Copy immutable release selections
-  pipelines/rollback.Jenkinsfile Restore one service from Git history
-  pipelines/verify.Jenkinsfile   Read rollout state and run smoke tests
+  pipelines/deploy-dev.Jenkinsfile     Dev promotion and verification entry point
+  pipelines/deploy-qa.Jenkinsfile      Staging promotion and verification entry point
+  pipelines/deploy-prod.Jenkinsfile    Production promotion and verification entry point
+  pipelines/rollback.Jenkinsfile       Restore one service from Git history
+  pipelines/production-verify.Jenkinsfile  Guard production PR verification
+  pipelines/gitops-validate.Jenkinsfile    Validate exact GitOps PR head
   jenkins/jobs/release.groovy    Main-only Job DSL definitions
   jenkins/compose.yaml           Optional fresh single-controller installation
   jenkins/casc/jenkins.yaml      Declarative controller configuration
@@ -1031,7 +1034,7 @@ control-plane/data replicas still do not prove high availability.
 ## 16. Verification and recovery
 
 Inspect Argo synchronized revision and Deployment readiness, then run the full
-functional smoke suite. The optional boutique-verify job uses scoped read-only
+functional smoke suite. The environment deployment job's verify action uses scoped read-only
 kubeconfigs and public TLS CA files. It archives operational reports; it does
 not sign them or require another deployment agent to wait for it.
 Rollback opens a PR restoring a service's known-good digest/chart from protected

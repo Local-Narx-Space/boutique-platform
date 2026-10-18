@@ -35,8 +35,5 @@ See [validation.md](docs/validation.md) for executed checks and live acceptance
 work. [SLOs](docs/slo.md), [RTO/RPO](docs/recovery-targets.md) and
 [DR](docs/runbooks/disaster-recovery.md) remain part of the operating model.
 
-See the [current CI/platform file map](docs/repository-map.md) for core files, optional
-exercises and the removed legacy components.
-
-See the [file-by-file platform audit](docs/file-audit.md) for every retained file,
-its purpose, optional paths and validated cleanup.
+See [validation and acceptance](docs/validation.md) for automated checks and the
+live exercises that still need to be run on the target laptop.
