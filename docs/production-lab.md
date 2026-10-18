@@ -63,7 +63,7 @@ The frontend origins are `https://dev.boutique.test:8443`, `https://staging.bout
 
 Argo CD reads the published GitOps repository. Prepare the cluster foundations,
 then publish reviewed service main through the normal Jenkins gates. Select the
-four dev artifacts through ordinary boutique-promote PRs. Do not sync an
+four dev artifacts through ordinary `Deployments/boutique-deploy-dev` PRs. Do not sync an
 incomplete environment. ServiceNow adapter publication is optional.
 `lab-profiles/ENV/values.yaml` adds local data/TLS without replacing the selected
 image digest or packaged chart. See [current delivery](deploy-cicd-kind.md).
@@ -94,7 +94,7 @@ python3 scripts/production-lab.py readiness --cluster nonprod --environment dev
 python3 scripts/production-lab.py verify --environment dev
 ```
 
-Promote each service to staging with boutique-promote, confirming dev smoke
+Promote each service to staging with `Deployments/boutique-deploy-qa`, confirming dev smoke
 results before review. Merge all four first staging selections before activating:
 
 ```bash
@@ -117,7 +117,7 @@ python3 scripts/production-lab.py verify --environment production
 Retain ordinary Argo/rollout/smoke reports and the GitOps merge commit. The helper
 rejects placeholder/mutable app images. It does not publish releases, approve PRs
 or sign verification records. TLS origins/CAs and scoped kubeconfigs are exported
-for the optional boutique-verify job; no additional agent label is required.
+for the environment deployment job's `ACTION=verify`; no additional agent label is required.
 
 ## Monitoring delivery exercises
 

@@ -60,9 +60,11 @@ Authorization sidebar page, select that strategy and your authorized Jenkins
 operator user ID; save before running. A logged-in trigger alone does not select
 build identity. Do not disable the sandbox to bypass authorization errors.
 
-The seed generates four app multibranch jobs plus promote/rollback/verify,
-manifest validation and infrastructure. `ENABLE_INCIDENT_BRIDGE_BUILD=false`
-(default) omits the adapter job; explicitly enable it for ServiceNow. Only main is discovered. Existing
+The seed generates four application multibranch jobs, three environment
+deployment jobs, rollback, GitOps validation, production verification and the
+seed job. The incident-adapter build is omitted by default; set
+`ENABLE_INCIDENT_BRIDGE_BUILD=true` only when using that integration. Only main
+is discovered. Existing
 jobs not present in the definition are preserved: disable obsolete bootstrap,
 policy and validation jobs manually after checking active runs.
 
@@ -116,8 +118,9 @@ boutique/gitops-policy status. Rerun validation for manual PRs or updated heads.
 The job checks configuration, not whether the previous environment passed live
 smoke tests; that remains a reviewer responsibility.
 
-On a laptop, use manual/scheduled branch scans; do not expose unauthenticated
-Jenkins HTTP to satisfy webhooks. A production webhook endpoint needs TLS,
+Direct GitHub PR events are not wired to `boutique-gitops-validate` in this
+setup, so GitOps PRs need a manual validation run. Do not expose unauthenticated
+Jenkins HTTP to add webhook delivery. A webhook endpoint needs TLS,
 authentication/signature checks and proper network/access controls.
 
 ## Validation

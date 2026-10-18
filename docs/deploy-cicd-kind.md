@@ -146,10 +146,12 @@ Disable an old Freestyle seed. Create **New Item → Pipeline**, named
 
 Save and run it. `SUPPRESS_AUTOMATIC_BUILDS=true` is the default: indexing can
 create branches without triggering application builds. Manual builds work.
-The seed creates four service jobs plus promote, rollback, manifest validation,
-verify and infrastructure jobs. Keep `ENABLE_INCIDENT_BRIDGE_BUILD=false`
-(default); enabling it adds the optional platform adapter build. Infrastructure
-is manual and optional.
+The seed creates four application multibranch jobs, three environment
+deployment jobs, rollback, GitOps validation, production verification and the
+seed job. The optional incident-adapter build is disabled by default and can be
+enabled with `ENABLE_INCIDENT_BRIDGE_BUILD=true`. AWS infrastructure lives in
+the separate infrastructure repository; this seed does not create an
+infrastructure job.
 
 The seed uses sandbox-compatible Job DSL rather than deferred XML configure
 blocks and needs no custom method approvals. Sandbox execution still needs a
@@ -196,10 +198,12 @@ recorded build for deployment; new code gets a new commit and artifact version.
 
 `DELIVER_TO_DEV` defaults to true. Initial dev PRs can be opened one service at
 a time; do not connect/sync the application until all four selections are real.
-If you deliberately build with it false, run `boutique-promote` manually with:
+If you deliberately build with it false, run
+`Deployments/boutique-deploy-dev` manually with:
 
 | Parameter | Value |
 | --- | --- |
+| ACTION | `promote` |
 | TARGET | `dev` |
 | SERVICE | The built service |
 | IMAGE | Exact `image-digest.txt` value from that publishing build |
@@ -329,7 +333,8 @@ for loopback dev. Cloud and TLS lab profiles retain HTTPS/Secure cookies.
 The smoke test checks cart/session separation, pricing, checkout, ownership and
 idempotency, and creates test orders. Pods merely being Running is insufficient.
 
-`boutique-verify` optionally automates these checks when scoped read-only
+`Deployments/boutique-deploy-dev` automates these checks with `ACTION=verify`
+when scoped read-only
 `kubeconfig-dev` and `BOUTIQUE_DEV_ORIGIN=http://localhost:8088` are configured.
 Its agent must reach the API and the port-forward, as your host-networked
 agent can. For TLS environments, also configure `boutique-ca-ENV` and the
@@ -344,15 +349,18 @@ After a reviewed service change merges into main, run its build. Review/merge
 the new dev PR, sync Argo if automatic sync is not enabled, and run smoke tests.
 Once bootstrap is complete, rerun the seed with
 `SUPPRESS_AUTOMATIC_BUILDS=false` to permit automatic main builds during
-indexing/events. Local Jenkins is not reachable by GitHub webhooks: use manual
-scans or scheduled discovery until a protected HTTPS webhook endpoint exists.
+indexing/events. Direct GitHub PR events are not wired to the GitOps validation
+job in this setup, so run validation manually for GitOps PRs. Do not expose
+unauthenticated Jenkins HTTP to add webhook delivery; configure a protected
+HTTPS endpoint with authentication and signature checks first.
 
-For staging, run `boutique-promote` with TARGET=staging and SERVICE selected;
-leave IMAGE and RELEASE_BUILD empty. It copies the digest/chart currently
-selected in dev. Confirm dev is actually running that selection and passed
-smoke tests before reviewing the staging PR. For production, the same process
-copies staging. The PR checks validate configuration, not live test success;
-the reviewer must check rollout/smoke reports. No rebuild occurs.
+For staging, run `Deployments/boutique-deploy-qa` with `ACTION=promote` and
+SERVICE selected; leave IMAGE and RELEASE_BUILD empty. It copies the
+digest/chart currently selected in dev. Confirm dev is actually running that
+selection and passed smoke tests before reviewing the staging PR. For
+production, use `Deployments/boutique-deploy-prod`; it copies staging. The PR
+checks validate configuration, not live test success; the reviewer must check
+rollout/smoke reports. No rebuild occurs.
 
 Do not sync a new environment until all four services have valid selections
 and its data, secrets, ingress/TLS and Argo Application are configured. On AWS,
@@ -367,7 +375,8 @@ dev profile is not offered for production and is not an availability claim.
 ## 11. Roll back and recover
 
 Find a previous protected-main GitOps commit that was known to work. Run
-`boutique-rollback` with SERVICE, TARGET and its full GITOPS_COMMIT. The job
+`Release Operations/boutique-rollback` with SERVICE, TARGET and its full
+GITOPS_COMMIT. The job
 restores that service's exact prior digest and chart package from Git history,
 validates them and opens a PR. Review migration compatibility before merging.
 It does not reset main, force-push, revert unrelated services or restore data.

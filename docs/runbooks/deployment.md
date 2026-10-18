@@ -11,7 +11,7 @@ The reviewer confirms the preceding environment passed checks and migrations
 are compatible; Git selection is not signed proof of execution.
 
 For recovery, stop competing releases, select a known-good protected GitOps
-commit and run boutique-rollback. Review the restored service package/digest and
+commit and run `Release Operations/boutique-rollback`. Review the restored service package/digest and
 migration compatibility, merge, sync and rerun smoke. Do not reset main or use
 kubectl image changes as a permanent GitOps rollback. Data loss requires the
 [DR procedure](disaster-recovery.md), not only app rollback.

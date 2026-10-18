@@ -2,7 +2,8 @@
 
 Stop competing releases and identify a previous protected-main GitOps commit
 whose service image/chart passed rollout and functional smoke checks.
-Run boutique-rollback with TARGET, SERVICE and the full GITOPS_COMMIT.
+Run `Release Operations/boutique-rollback` with TARGET, SERVICE and the full
+GITOPS_COMMIT.
 It restores only that service's exact digest/chart, validates manifests and opens
 a new PR. It rejects unmerged history and mutable images.
 
