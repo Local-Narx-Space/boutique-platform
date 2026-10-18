@@ -12,10 +12,9 @@ ROOT = Path(__file__).resolve().parents[3] / 'boutique-gitops'
 
 @unittest.skipUnless(shutil.which('helm'), 'Helm required for monitoring render checks')
 class MonitoringHelmTests(unittest.TestCase):
-    def render(self, profile, lab=False, image_values=None, incident=True):
+    def render(self, profile, image_values=None, incident=True):
         args=['helm','template','boutique-monitoring-'+profile,str(ROOT/'monitoring'),'-f',str(ROOT/'monitoring/profiles'/profile/'values.yaml')]
         if incident:args += ['--set','incidentBridge.enabled=true']
-        if lab:args += ['-f',str(ROOT/'lab-profiles/monitoring'/profile/'values.yaml')]
         if image_values:
             args += ['--set','incidentBridge.image.tag=','--set','incidentBridge.image.digest='+image_values]
         result=subprocess.run(args,capture_output=True,text=True)
@@ -96,35 +95,18 @@ class MonitoringHelmTests(unittest.TestCase):
         self.assertFalse(any(d['kind']=='PersistentVolumeClaim' and d['metadata']['name']=='incident-bridge-data' for d in resources))
         self.assertEqual(self.resource(resources,'PodDisruptionBudget','incident-bridge')['spec']['minAvailable'],1)
 
-    def test_lab_adds_only_mock_receiver_and_production_tls_queue(self):
-        for profile in ('nonprod','production'):
-            with self.subTest(profile=profile):
-                cloud=self.render(profile);lab=self.render(profile,lab=True)
-                key=lambda d:(d['kind'],d['metadata'].get('namespace',''),d['metadata']['name'])
-                cloud_map={key(d):d for d in cloud};lab_map={key(d):d for d in lab}
-                differences=[k for k in cloud_map if cloud_map[k]!=lab_map[k]]
-                self.assertEqual(differences,[('Deployment','monitoring','incident-bridge')])
-                self.resource(lab,'Deployment','mock-receivers')
-                pod=self.resource(lab,'Deployment','incident-bridge')['spec']['template']['spec']
-                env={e['name']:e.get('value') for e in pod['containers'][0]['env']}
-                self.assertEqual(env['SERVICENOW_URL'],'http://mock-receivers:18080')
-                self.assertEqual(env['ALLOW_HTTP_MOCK'],'true')
-                self.assertEqual(pod['imagePullSecrets'],[{'name':'ghcr-pull'}])
-                if profile=='production':
-                    queue=self.resource(lab,'StatefulSet','incident-queue-postgres')
-                    self.assertIn('ssl=on',queue['spec']['template']['spec']['containers'][0]['args'])
-                    self.resource(lab,'Certificate','incident-queue-tls')
-                else:
-                    self.assertFalse(any(d['kind']=='StatefulSet' for d in lab))
+    def test_active_homelab_has_no_mock_receivers_or_queue(self):
+        resources=self.render('homelab', incident=False)
+        self.assertFalse(any(d['metadata']['name'] in ('mock-receivers','incident-queue-postgres') for d in resources))
+        self.assertFalse((ROOT/'lab-profiles').exists())
 
-    def test_one_reviewed_image_selection_reaches_cloud_and_lab(self):
+    def test_one_reviewed_image_selection_reaches_every_retained_profile(self):
         digest='sha256:'+'a'*64
         for profile in ('homelab','nonprod','production'):
-            for lab in ([False] if profile=='homelab' else [False,True]):
-                with self.subTest(profile=profile,lab=lab):
-                    resources=self.render(profile,lab,digest)
-                    image=self.resource(resources,'Deployment','incident-bridge')['spec']['template']['spec']['containers'][0]['image']
-                    self.assertEqual(image,'ghcr.io/subhankar12-spec/boutique-incident-bridge@'+digest)
+            with self.subTest(profile=profile):
+                resources=self.render(profile, image_values=digest)
+                image=self.resource(resources,'Deployment','incident-bridge')['spec']['template']['spec']['containers'][0]['image']
+                self.assertEqual(image,'ghcr.io/subhankar12-spec/boutique-incident-bridge@'+digest)
 
     def test_mutable_image_and_invalid_profile_are_rejected(self):
         for setting in ('incidentBridge.image.tag=latest','incidentBridge.image.digest=sha256:short','profile=unknown'):
@@ -141,20 +123,20 @@ class MonitoringHelmTests(unittest.TestCase):
             for key,value in d['data'].items():
                 if key.endswith('.json'):self.assertEqual(len(json.loads(value)['panels']),13)
 
-    def test_cloud_projects_admit_every_rendered_resource_with_scoped_namespaces(self):
-        for profile in ('homelab','nonprod','production'):
+    def test_active_project_admits_every_rendered_resource_with_scoped_namespaces(self):
+        for profile in ('homelab',):
             docs=list(yaml.safe_load_all((ROOT/'applications'/('monitoring-'+profile+'.yaml')).read_text()))
             project=next(d for d in docs if d['kind']=='AppProject')['spec']
             namespaces={d['namespace'] for d in project['destinations']}
-            for resource in self.render(profile):
+            for resource in self.render(profile, incident=False):
                 group=resource['apiVersion'].split('/')[0] if '/' in resource['apiVersion'] else ''
                 kind=resource['kind'];namespace=resource['metadata'].get('namespace')
                 allowed=project['namespaceResourceWhitelist'] if namespace else project['clusterResourceWhitelist']
                 self.assertIn({'group':group,'kind':kind},allowed)
                 if namespace:self.assertIn(namespace,namespaces)
 
-    def test_cloud_argo_sources_select_chart_and_profile_values(self):
-        for profile in ('homelab','nonprod','production'):
+    def test_active_argo_source_selects_chart_and_profile_values(self):
+        for profile in ('homelab',):
             docs=list(yaml.safe_load_all((ROOT/'applications'/('monitoring-'+profile+'.yaml')).read_text()))
             source=next(d for d in docs if d['kind']=='Application')['spec']['source']
             self.assertEqual(source['path'],'monitoring')
