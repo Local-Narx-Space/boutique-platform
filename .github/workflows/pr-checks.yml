@@ -41,6 +41,3 @@ jobs:
       - name: Test deployment verification and active configuration
         working-directory: boutique-platform
         run: python3 -m unittest discover -s tests/config -v
-      - name: Test local platform safety
-        working-directory: boutique-platform
-        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v

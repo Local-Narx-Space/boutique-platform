@@ -1,39 +1,23 @@
 # Boutique runtime and operations
 
-Start with [the existing Debian/kind CI/CD guide](docs/deploy-cicd-kind.md).
-The flow is reviewed main → Jenkins tests/scans/build/publish → GitOps PR →
-Helm/manifest checks and human merge → Argo CD → rollout and smoke verification.
-Promote the same image digest/chart from dev to staging to production.
+The single project guide is [boutique-ci/DOC.md](https://github.com/Local-Narx-Space/boutique-ci/blob/main/DOC.md). It explains architecture,
+CI/CD, Docker, Helm/GitOps, Python automation, setup, monitoring and recovery.
 
-The [beginner architecture guide](docs/beginner-guide.md) explains the eight
-repos, request flow, file types and operating model. [Jenkins setup](docs/jenkins-setup.md)
-uses one controller, a private rootless build agent, a version-pinned shared
-library and a Pipeline seed. It requires no custom signing/evidence system.
-
-For your existing `mega-local` cluster, dev uses published GHCR images, local
-PostgreSQL/Redis and loopback port 8088. Do not replace its existing controllers.
-The [manual local-image exercise](docs/deploy-local-kind.md) remains optional.
-`./scripts/local-up.sh` provides fast Compose application development.
-
-[Monitoring](docs/monitoring.md) covers Prometheus, provisioned Grafana dashboards,
-Alertmanager/Slack, Loki/Alloy and optional ServiceNow. Incident workers and their
-queue are disabled by default in Kubernetes. Keep SLOs, recovery targets and
-restore drills; production availability claims require measured results.
-
-The [two-cluster exercise](docs/production-lab.md) is optional on a larger host.
-AWS Terraform remains a separate reference under boutique-infrastructure, with
-VPC/EKS/managed data, ESO/IRSA, CloudWatch and CloudTrail. No paid resources are
-provisioned by the local path. Production should have separate cluster/account,
-credentials, data and backups; one laptop does not provide that isolation.
+This repository contains runtime assembly, the active deployment verifier,
+scoped verifier credential bootstrap, local Kubernetes backups and optional
+Compose/monitoring test fixtures. The existing kind-mega-local cluster hosts
+dev, QA and production namespaces; separate namespaces do not provide host HA.
 
 ```bash
 python3 -m unittest discover -s tests/config -v
-python3 scripts/test_production_lab.py -v
 ```
 
-See [validation.md](docs/validation.md) for executed checks and live acceptance
-work. [SLOs](docs/slo.md), [RTO/RPO](docs/recovery-targets.md) and
-[DR](docs/runbooks/disaster-recovery.md) remain part of the operating model.
+Run `scripts/local-up.sh` for disposable Compose development. Use the guide for
+Kubernetes deployment, backup/restore and troubleshooting. Operational commands
+need the intended context and existing secrets; never replace a live cluster
+or regenerate database/session keys as a cleanup step.
 
-See [validation and acceptance](docs/validation.md) for automated checks and the
-live exercises that still need to be run on the target laptop.
+The retired two-cluster bootstrap and unsupported incident-adapter Jenkinsfile
+are removed. `local/controller-versions.lock.json` retains the checksummed
+installation metadata used by the guide. The optional incident adapter remains
+available for local tests; it is not an active fifth Jenkins service.

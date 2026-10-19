@@ -24,7 +24,7 @@ tests:
         slo: errors
       exp_annotations:
         summary: Production API availability budget is burning at over 14.4x
-        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/docs/slo.md
+        runbook_url: https://github.com/Local-Narx-Space/boutique-ci/blob/main/DOC.md#202-slos-and-budget-burn
     - exp_labels:
         service: frontend
         environment: production
@@ -33,7 +33,7 @@ tests:
         slo: errors
       exp_annotations:
         summary: Production API availability budget is burning at over 6x
-        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/docs/slo.md
+        runbook_url: https://github.com/Local-Narx-Space/boutique-ci/blob/main/DOC.md#202-slos-and-budget-burn
   - eval_time: 65m
     alertname: BoutiqueProductionLatencyBudgetBurn
     exp_alerts:
@@ -45,7 +45,7 @@ tests:
         slo: slow
       exp_annotations:
         summary: Production API latency budget is burning at over 14.4x
-        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/docs/slo.md
+        runbook_url: https://github.com/Local-Narx-Space/boutique-ci/blob/main/DOC.md#202-slos-and-budget-burn
     - exp_labels:
         service: frontend
         environment: production
@@ -54,7 +54,7 @@ tests:
         slo: slow
       exp_annotations:
         summary: Production API latency budget is burning at over 6x
-        runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/docs/slo.md
+        runbook_url: https://github.com/Local-Narx-Space/boutique-ci/blob/main/DOC.md#202-slos-and-budget-burn
 - interval: 1m
   input_series:
   - series: boutique_http_requests_total{service="frontend",environment="production",cluster="homelab",route="/api/products",method="GET",status="200"}
