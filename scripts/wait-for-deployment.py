@@ -102,9 +102,28 @@ class TrustedHistory:
         if selected != self.image:
             raise DeploymentError('Selected service image differs at the requested/synchronized GitOps revision')
 
+    def refresh_protected_main(self):
+        # Argo can observe later reviewed merges while this job waits for rollout.
+        # Fetch only the approved main branch, never a revision supplied by Argo.
+        if self.git('remote', 'get-url', 'origin') != REPOSITORY:
+            raise DeploymentError('Git origin does not match the approved GitOps repository')
+        self.git('fetch', '--no-tags', 'origin', 'refs/heads/main:refs/remotes/origin/main')
+        tip = self.git('rev-parse', '--verify', 'refs/remotes/origin/main^{commit}')
+        if not FULL_SHA.fullmatch(tip):
+            raise DeploymentError('A full protected origin/main revision is required')
+        self.ancestor(self.protected_tip, tip)
+        self.ancestor(self.requested, tip)
+        self.protected_tip = tip
+
     def validate_revision(self, revision):
         if not isinstance(revision, str) or not FULL_SHA.fullmatch(revision):
             raise DeploymentError('Synced Argo status must contain a full Git commit SHA')
+        try:
+            known = self.git('rev-parse', '--verify', revision + '^{commit}') == revision
+        except DeploymentError:
+            known = False
+        if not known or not self.is_ancestor(revision, self.protected_tip):
+            self.refresh_protected_main()
         # Both relationships matter: another reviewed service may advance main,
         # but an older, divergent, unknown or unprotected revision cannot pass.
         self.ancestor(revision, self.protected_tip)

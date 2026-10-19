@@ -130,7 +130,9 @@ class DeploymentWaitTests(unittest.TestCase):
 
     def test_unprotected_descendant_is_rejected(self):
         actual=self.descendant(protected=False)
-        with self.assertRaisesRegex(waiter.DeploymentError,'protected main history'):
+        # This synthetic history has no network upstream; a refresh cannot
+        # promote its unreviewed commit into the protected tracking branch.
+        with patch.object(waiter.TrustedHistory, 'refresh_protected_main'), self.assertRaisesRegex(waiter.DeploymentError,'protected main history'):
             self.poll(app=self.application(actual))
 
     def test_divergent_revision_cannot_use_same_image_to_bypass_history(self):
@@ -138,8 +140,60 @@ class DeploymentWaitTests(unittest.TestCase):
         self.git('checkout','-b','unreviewed',self.requested)
         (self.root/'divergent.txt').write_text('Different history')
         divergent=self.commit()
-        with self.assertRaisesRegex(waiter.DeploymentError,'protected main history'):
+        with patch.object(waiter.TrustedHistory, 'refresh_protected_main'), self.assertRaisesRegex(waiter.DeploymentError,'protected main history'):
             self.poll(app=self.application(divergent))
+
+    def advanced_upstream(self, changed_image=False):
+        upstream = self.folder / 'upstream.git'
+        writer = self.folder / 'writer'
+        def run(*args):
+            return subprocess.run(['git', *map(str, args)], check=True, capture_output=True, text=True).stdout.strip()
+        run('clone', '--bare', self.root, upstream)
+        run('clone', upstream, writer)
+        run('-C', writer, 'config', 'user.name', 'Reviewed upstream change')
+        run('-C', writer, 'config', 'user.email', 'upstream@example.com')
+        if changed_image:
+            p = writer / 'environments/dev/releases.yaml'
+            p.write_text(p.read_text().replace('a' * 64, 'b' * 64))
+        else:
+            (writer / 'README.md').write_text('Another service merged while verification waited.')
+        run('-C', writer, 'add', '.')
+        run('-C', writer, 'commit', '-m', 'Reviewed later merge')
+        run('-C', writer, 'push', 'origin', 'main')
+        return upstream, run('-C', writer, 'rev-parse', 'HEAD')
+
+    def history_with_local_upstream(self, upstream):
+        history = self.history()
+        original = history.git
+        def git(*args):
+            if args and args[0] == 'fetch':
+                # Route only the transport to a real isolated upstream. The
+                # production origin URL and branch restrictions stay checked.
+                self.assertEqual(args, ('fetch', '--no-tags', 'origin', 'refs/heads/main:refs/remotes/origin/main'))
+                return self.git('fetch', '--no-tags', str(upstream), args[-1])
+            return original(*args)
+        history.git = git
+        return history
+
+    def test_later_argo_commit_is_fetched_from_protected_main(self):
+        upstream, revision = self.advanced_upstream()
+        history = self.history_with_local_upstream(upstream)
+        missing = subprocess.run(['git', '-C', str(self.root), 'cat-file', '-e', revision], capture_output=True)
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertEqual(history.validate_revision(revision), revision)
+        self.assertEqual(history.protected_tip, revision)
+
+    def test_refresh_does_not_allow_a_changed_selected_release(self):
+        upstream, revision = self.advanced_upstream(changed_image=True)
+        history = self.history_with_local_upstream(upstream)
+        with self.assertRaisesRegex(waiter.DeploymentError, 'Selected service image differs'):
+            history.validate_revision(revision)
+
+    def test_refresh_failure_is_not_treated_as_verified(self):
+        history = self.history()
+        with patch.object(history, 'refresh_protected_main', side_effect=waiter.DeploymentError('Fetch failed')):
+            with self.assertRaisesRegex(waiter.DeploymentError, 'Fetch failed'):
+                history.validate_revision('c' * 40)
 
     def test_older_healthy_revision_does_not_satisfy_requested_descendant(self):
         requested=self.descendant()
@@ -240,7 +294,7 @@ class DeploymentWaitTests(unittest.TestCase):
     def test_git_command_errors_cannot_be_treated_as_pending_or_trusted_ancestry(self):
         history=self.history()
         with patch.object(waiter.subprocess,'run',return_value=subprocess.CompletedProcess(['git'],2,stdout='',stderr='error')):
-            with self.assertRaisesRegex(waiter.DeploymentError,'ancestry read failed'):
+            with self.assertRaisesRegex(waiter.DeploymentError,'read failed'):
                 history.validate_revision(self.requested)
 
     def test_cli_uses_only_scoped_get_reads_and_writes_actual_full_sha(self):
