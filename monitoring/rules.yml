@@ -25,7 +25,7 @@ groups:
       severity: critical
     annotations:
       summary: '{{ $labels.service }} is unavailable in {{ $labels.environment }}'
-      runbook_url: https://github.com/Local-Narx-Space/boutique-platform/blob/main/docs/monitoring.md#service-down
+      runbook_url: https://github.com/Local-Narx-Space/boutique-ci/blob/main/DOC.md#201-service-down-and-rollout-failure
   - alert: BoutiqueHighErrorRate
     expr: (boutique:errors:rate5m / boutique:requests:rate5m > 0.05) and (boutique:requests:rate5m > 0.1)
     for: 5m
